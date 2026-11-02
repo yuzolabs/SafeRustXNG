@@ -49,7 +49,6 @@ pub struct SearchParams {
     pub include_domains: Option<String>,
     /// Agent-facing extension: drop these domains (comma separated).
     pub exclude_domains: Option<String>,
-    /// Agent-facing extension: fetch and return the page text of the top results.
     /// Engine start strategy: "parallel" (default) or "staged".
     pub strategy: Option<String>,
 }

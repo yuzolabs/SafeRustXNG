@@ -4,10 +4,22 @@
 
 ## [Unreleased]
 
+### Removed
+
+- Removed 78 HTML-scraping engines (including the generic `xpath` engine), result-page HTML body fetching (`include_raw_content` processing, `raw_content` result fields, and `search.raw_content_limit` / `search.raw_content_chars` settings), and the `rustxng-index crawl` HTML crawler; legacy `include_raw_content` query parameters are ignored without network requests to result URLs, and `/research` summarizes upstream engine `content` snippets only.
+- Removed `LocalIndex::open_for_write`, `LocalIndex::add`, `LocalIndex::commit`, `LocalIndex::has_url`, and the `Page` write API; `LocalIndex` and `rustxng-index` now support read-only `search` and `stats` over existing compatible indexes only and do not create or repair missing, empty, or corrupted indexes.
+
+### Security
+
+- Outbound requests validate non-HTML `Content-Type` headers before reading any response body, rejecting missing `Content-Type` headers and `text/html` or `application/xhtml+xml` responses, and disallow requesting `text/html` or `application/xhtml+xml` in `Accept`.
+- `/image_proxy` and `/favicon_proxy` retain `image/svg+xml` support while isolating proxied image responses with `Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'` (without `allow-scripts` or `allow-same-origin`), `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer`.
+
 ### Fixed
 
 - CLI bind/port overrides now reach generated feed and OpenSearch URLs, while an explicitly configured public base URL is preserved.
 - Docker runtime files have explicit read/execute permissions for the non-root user, independent of checkout file modes.
+- `Network` preserves HTTP status classification on `>= 400` responses even when `Content-Type` validation rejects the response (such as HTML error pages) without reading the response body: `403` maps to `AccessDenied` without body-based Captcha guessing on unread HTML, `429` and `5xx` remain retryable within the request deadline and retry budget while keeping engine suspension handling, and JSON error responses share the same retry path.
+- `tools/register_engines.py` parses `settings.toml` with `tomllib` to validate `[[engines]]` `engine` types (tolerating single quotes and spacing variations, and failing with an error before writing generated files if `engine` is missing or invalid), and CI runs offline Python tool unit tests (`python -m unittest discover -s tools -p "test_*.py"`) on Linux, macOS, and Windows.
 
 ### Changed
 
@@ -15,6 +27,7 @@
 - Default HTTP port changes from 8888 to 29483 across settings, Docker and CI. Explicit `--port`, `SEARXNG_PORT` and configuration overrides remain supported. See [migration notes](docs/PORT-MIGRATION.md).
 - English and Japanese READMEs now start with agent setup instructions, distinguish current functionality from future work, and link to measured SealQA retrieval results and the audit.
 - Docker examples and smoke tests publish on loopback by default. Older published images use an explicit server port in the examples.
+- Source installation documentation targets the SafeRustXNG `main` branch (`https://github.com/yuzolabs/SafeRustXNG/tree/main`) while keeping these changes under `[Unreleased]` with binary name `rustxng` and version `0.26.0` unchanged (unverified against upstream `sahenjp/RustXNG` `v0.26.0` release binaries and images).
 
 ## [0.26.0] - 2026-11-01
 

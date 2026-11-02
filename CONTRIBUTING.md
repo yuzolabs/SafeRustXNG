@@ -20,7 +20,7 @@ Small documentation fixes can go straight to a PR. Follow [CODE_OF_CONDUCT.md](C
 Use stable Rust (minimum 1.88 for the current lockfile) and a C build toolchain.
 
 ```bash
-git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
 cargo test --all-targets
 ```

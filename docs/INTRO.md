@@ -2,7 +2,7 @@
 
 > 検索 API を 1 本に。複数の検索先を、自分のサーバーから。
 >
-> **現在の構成に関する注意：** 人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および Google・Bing・DuckDuckGo・Brave の HTML 検索などを含む）と、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`）・HTML クローラー（`rustxng-index crawl`）は、SafeRustXNG の開発ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>）で削除されています。現在は非 HTML レスポンス（JSON API・Atom/RSS フィード・DB 等）を扱うエンジンのみを残しています（公式 API 限定や利用規約への適合を保証するものではありません）。下表のレイテンシ等の数値は HTML エンジン削除前の履歴スナップショットです。エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、履歴数値を現在の性能保証として扱うことはできません。
+> **現在の構成に関する注意：** 人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および Google・Bing・DuckDuckGo・Brave の HTML 検索などを含む）と、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`）・HTML クローラー（`rustxng-index crawl`）は、SafeRustXNG（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）で削除されています。現在は非 HTML レスポンス（JSON API・Atom/RSS フィード・DB 等）を扱うエンジンのみを残しています（公式 API 限定や利用規約への適合を保証するものではありません）。下表のレイテンシ等の数値は HTML エンジン削除前の履歴スナップショットです。エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、履歴数値を現在の性能保証として扱うことはできません。
 
 ## これは何か
 
@@ -23,7 +23,7 @@ SearXNG の基本的な HTTP API・検索構文・設定形式を引き継いで
 | 単一サイト検索（ウォーム・履歴） | **1 ms** |
 | 全サイト検索（HTML エンジン削除前のウォーム中央値・履歴） | **276 ms** |
 
-エージェントは 1 ターンで何度も検索するため、検索サーバー自体のオーバーヘッドやキャッシュ応答の速さが重要になります。上表は HTML エンジン削除前に計測された履歴値であり、本ブランチでの現在の測定値ではありません（詳細は [docs/BENCHMARK.md](BENCHMARK.md) を参照してください）。
+エージェントは 1 ターンで何度も検索するため、検索サーバー自体のオーバーヘッドやキャッシュ応答の速さが重要になります。上表は HTML エンジン削除前に計測された履歴値であり、現在の SafeRustXNG 構成での測定値ではありません（詳細は [docs/BENCHMARK.md](BENCHMARK.md) を参照してください）。
 
 ### 2. 検索先をまたぐ共通の JSON 結果スキーマ
 
@@ -130,10 +130,10 @@ curl 'http://127.0.0.1:29483/search?q=rust&format=json&max_results=5'
 
 ## 使い始める
 
-現在の HTML 取得なし構成は SafeRustXNG の `feat/remove-html-fetching` ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>）にあります。ソースからビルドして起動してください（生成されるバイナリ名は `rustxng`、バージョン表記は `0.26.0` のままです）。上流 `sahenjp/RustXNG` の `v0.26.0` リリースバイナリや公開コンテナイメージは上流のみ（履歴情報）であり、本ブランチの変更が含まれることは確認されていません。
+HTML 取得なし構成は SafeRustXNG の `main` ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）からのソース導入として提供しています。ソースからビルドして起動してください（生成されるバイナリ名は `rustxng`、バージョン表記は `0.26.0` のままのため、バージョン表示だけでは上流ビルドと区別できません）。上流 `sahenjp/RustXNG` の `v0.26.0` リリースバイナリや公開コンテナイメージは上流のみ（履歴情報）であり、SafeRustXNG の変更が含まれることは確認されていません。
 
 ```bash
-git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
 cargo build --release --locked --bin rustxng
 ./target/release/rustxng --bind 127.0.0.1 --port 29483

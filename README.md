@@ -4,12 +4,12 @@
 
 Copy this instruction into an agent that can run commands, or send it this README:
 
-> Set up RustXNG from the SafeRustXNG `feat/remove-html-fetching` branch (<https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>) and use it for web searches.
-> First check for an existing RustXNG service and reuse it only if it is known to run a build from this branch.
-> Otherwise, clone `--branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git`
-> and build from source with `cargo build --release --locked --bin rustxng` (the binary is still named `rustxng` and reports version `0.26.0`;
+> Set up RustXNG from the SafeRustXNG `main` branch (<https://github.com/yuzolabs/SafeRustXNG/tree/main>) and use it for web searches.
+> First check for an existing RustXNG service and reuse it only if it is known to run a SafeRustXNG source build from `main`.
+> Otherwise, clone `--branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git`
+> and build from source with `cargo build --release --locked --bin rustxng` (the binary is still named `rustxng` and reports version `0.26.0`, so version output alone cannot distinguish its provenance;
 > upstream `sahenjp/RustXNG` `v0.26.0` release binaries and images are not verified to include the HTML-fetching removals).
-> Follow [the agent setup guide](https://github.com/yuzolabs/SafeRustXNG/blob/feat/remove-html-fetching/docs/AGENT-SETUP.md).
+> Follow [the agent setup guide](https://github.com/yuzolabs/SafeRustXNG/blob/main/docs/AGENT-SETUP.md).
 > Start `./target/release/rustxng --bind 127.0.0.1 --port 29483` on loopback, check `/healthz`, then verify a JSON search with `max_results=5`.
 > Keep responses small with `max_results` and domain filters; RustXNG returns engine snippets and does not fetch result pages.
 > Report the binary version, endpoint, and one working search command. If setup fails, report the actual error.
@@ -22,7 +22,7 @@ Copy this instruction into an agent that can run commands, or send it this READM
 ## Why RustXNG
 
 RustXNG is a self-hosted metasearch engine written in Rust, based on [SearXNG](https://github.com/searxng/searxng) and derived from [sahenjp/RustXNG](https://github.com/sahenjp/RustXNG).
-This repository branch (<https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>) is the SafeRustXNG development branch that removes HTML-scraping engines and result-page HTML fetching.
+SafeRustXNG (<https://github.com/yuzolabs/SafeRustXNG/tree/main>) is a fork that removes HTML-scraping engines and result-page HTML fetching.
 It combines results from multiple non-HTML API and feed sources into one JSON API and browser UI without fetching result web pages.
 An agent can retrieve search snippets as it needs them and keep the amount of text sent to its model small.
 
@@ -74,11 +74,11 @@ The browser UI is at <http://127.0.0.1:29483/>. JSON, CSV, RSS, and HTML outputs
 
 ## Install
 
-> **Current HTML-free branch (`feat/remove-html-fetching`):** The removal of the 78 HTML engines, result-page HTML fetching, and outbound HTML responses is implemented on the SafeRustXNG development branch at <https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>. No prebuilt binary or container image has been verified to contain these changes; to use or verify this HTML-free implementation, build from source from this branch (see [4. Source](#4-source) or [2. Cargo](#2-cargo)). The compiled binary is still named `rustxng` and reports version `0.26.0`. Original `sahenjp/RustXNG` `v0.26.0` release binaries and `ghcr.io/sahenjp/rustxng:latest` images are upstream-only/historical and are not verified to include these changes.
+> **SafeRustXNG source install (`main`):** The removal of the 78 HTML engines, result-page HTML fetching, and outbound HTML responses is provided as a source install from the SafeRustXNG `main` branch at <https://github.com/yuzolabs/SafeRustXNG/tree/main>. No prebuilt binary or container image has been verified to contain these changes; to use or verify this HTML-free implementation, build from source from SafeRustXNG `main` (see [4. Source](#4-source) or [2. Cargo](#2-cargo)). The compiled binary is still named `rustxng` and reports version `0.26.0`, so `--version` alone cannot distinguish it from upstream builds. Original `sahenjp/RustXNG` `v0.26.0` release binaries and `ghcr.io/sahenjp/rustxng:latest` images are upstream-only/historical and are not verified to include these changes.
 
 ### 1. Release binary
 
-> **Upstream-only / historical (`sahenjp/RustXNG` `v0.26.0`):** Prebuilt binaries on [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases) are original upstream artifacts and are **not verified** to contain the HTML-fetching and HTML-engine removals on `feat/remove-html-fetching`. For current HTML-free use or verification, build from source in [4. Source](#4-source) instead.
+> **Upstream-only / historical (`sahenjp/RustXNG` `v0.26.0`):** Prebuilt binaries on [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases) are original upstream artifacts and are **not verified** to contain the SafeRustXNG HTML-fetching and HTML-engine removals. For HTML-free use or verification, build from source from SafeRustXNG `main` in [4. Source](#4-source) instead.
 
 For historical upstream `sahenjp/RustXNG` `v0.26.0` reference only, the published upstream release includes Linux x86_64 (GNU and musl), macOS arm64/x86_64,
 and Windows x86_64 binaries. The [agent setup guide](docs/AGENT-SETUP.md) explains selection and verification.
@@ -103,28 +103,28 @@ If `~/.local/bin` is not on `PATH`, use the absolute binary path or add the dire
 
 ### 2. Cargo
 
-Use a current stable Rust toolchain and a C build toolchain to install from the current HTML-free branch:
+Use a current stable Rust toolchain and a C build toolchain to install from SafeRustXNG `main`:
 
 ```bash
-cargo install --git https://github.com/yuzolabs/SafeRustXNG.git --branch feat/remove-html-fetching --locked
+cargo install --git https://github.com/yuzolabs/SafeRustXNG.git --branch main --locked
 ```
 
 This installs `rustxng` (version `0.26.0`) and `rustxng-index`.
-`Cargo.toml` declares Rust 1.88 as the minimum supported version (MSRV) and the CI workflow defines a Rust 1.88.0 job; this branch was verified locally with Rust 1.98.0 (`rustc 1.98.0 (88d9e12ae 2026-08-18)`).
-(Installing `--git https://github.com/sahenjp/RustXNG.git --tag v0.26.0` installs the upstream-only/historical `v0.26.0` tag, which is not verified to contain this branch's HTML-fetching removals.)
+`Cargo.toml` declares Rust 1.88 as the minimum supported version (MSRV) and the CI workflow defines a Rust 1.88.0 job; local verification used Rust 1.98.0 (`rustc 1.98.0 (88d9e12ae 2026-08-18)`).
+(Installing `--git https://github.com/sahenjp/RustXNG.git --tag v0.26.0` installs the upstream-only/historical `v0.26.0` tag, which is not verified to contain SafeRustXNG's HTML-fetching removals.)
 
 ### 3. Docker
 
-Build the image locally from this branch:
+Build the image locally from SafeRustXNG `main`:
 
 ```bash
-git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
 docker build -t rustxng .
 docker run --rm -p 127.0.0.1:29483:29483 rustxng
 ```
 
-For the upstream-only/historical published image from `sahenjp/RustXNG` (not verified to include this branch's HTML-fetching removals; older images also default internally to port 8888):
+For the upstream-only/historical published image from `sahenjp/RustXNG` (not verified to include SafeRustXNG's HTML-fetching removals; older images also default internally to port 8888):
 
 ```bash
 docker run --rm -p 127.0.0.1:29483:29483 -e SEARXNG_PORT=29483 ghcr.io/sahenjp/rustxng:latest --bind 0.0.0.0 --port 29483
@@ -134,14 +134,14 @@ Publishing on other interfaces is an explicit deployment choice; configure authe
 To supply settings, mount a complete copy of [settings.toml](settings.toml) with
 `-v "$PWD/settings.toml:/app/settings.toml:ro"` before the image name. When replacing container arguments,
 include both `--bind 0.0.0.0` and `--port 29483`. Published upstream images target Linux amd64;
-on other architectures (or for the current HTML-free branch) build locally from source.
+on other architectures (or for SafeRustXNG's HTML-free build) build locally from source.
 
 ### 4. Source
 
-Build and run the current HTML-free branch directly from source:
+Build and run SafeRustXNG `main` directly from source:
 
 ```bash
-git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
 cargo build --release --locked --bin rustxng
 ./target/release/rustxng --bind 127.0.0.1 --port 29483

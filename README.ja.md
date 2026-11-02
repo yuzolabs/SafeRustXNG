@@ -4,11 +4,11 @@
 
 コマンドを実行できるエージェントに、次の指示またはこのREADMEを渡してください。
 
-> SafeRustXNGの`feat/remove-html-fetching`ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>）からRustXNGを導入し、Web検索に使ってください。
-> 最初に既存のRustXNGサービスを確認し、このブランチからビルドされたものと確認できる場合のみ再利用してください。
-> それ以外は、`git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git`で取得し、
-> `cargo build --release --locked --bin rustxng`でソースからビルドしてください（バイナリ名は`rustxng`、バージョン表記は`0.26.0`のままです。上流`sahenjp/RustXNG`の公開済み`v0.26.0`バイナリやイメージに本ブランチのHTML取得削除が含まれることは確認されていません）。
-> [エージェント向け導入ガイド](https://github.com/yuzolabs/SafeRustXNG/blob/feat/remove-html-fetching/docs/AGENT-SETUP.md)に従ってください。
+> SafeRustXNGの`main`ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）からRustXNGを導入し、Web検索に使ってください。
+> 最初に既存のRustXNGサービスを確認し、SafeRustXNGの`main`からソースビルドされたものと確認できる場合のみ再利用してください。
+> それ以外は、`git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git`で取得し、
+> `cargo build --release --locked --bin rustxng`でソースからビルドしてください（バイナリ名は`rustxng`、バージョン表記は`0.26.0`のままのためバージョン表示だけでは出自を区別できません。上流`sahenjp/RustXNG`の公開済み`v0.26.0`バイナリやイメージにSafeRustXNGのHTML取得削除が含まれることは確認されていません）。
+> [エージェント向け導入ガイド](https://github.com/yuzolabs/SafeRustXNG/blob/main/docs/AGENT-SETUP.md)に従ってください。
 > `./target/release/rustxng --bind 127.0.0.1 --port 29483`でloopback起動し、`/healthz`と`max_results=5`のJSON検索を確認してください。
 > `max_results`やドメイン指定で出力を絞り、検索エンジンが返す要約（`content`）を利用してください（結果ページのHTML本文取得は行いません）。
 > 完了後、バイナリのバージョン、接続先、動作した検索コマンドを報告してください。失敗時は実際のエラーを報告してください。
@@ -21,7 +21,7 @@
 ## RustXNGの用途
 
 RustXNGは、[SearXNG](https://github.com/searxng/searxng)を基にした[sahenjp/RustXNG](https://github.com/sahenjp/RustXNG)から派生する、Rust実装のセルフホスト型メタ検索エンジンです。
-このブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>）は、HTMLスクレイピング系エンジンおよび検索結果ページのHTML取得を削除したSafeRustXNGの開発ブランチです。
+SafeRustXNG（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）は、HTMLスクレイピング系エンジンおよび検索結果ページのHTML取得を削除したフォークです。
 複数の非HTML検索先（API・フィード等）の結果を統合し、単一のJSON APIおよびブラウザ画面として返します（検索結果ページのHTML本文取得は行いません）。
 エージェントが必要な情報をその都度検索し、モデルへ渡す文章量を抑えるための基盤です。
 
@@ -73,11 +73,11 @@ curl --fail --get 'http://127.0.0.1:29483/search' \
 
 ## 導入
 
-> **現在のHTML取得なし実装（`feat/remove-html-fetching`ブランチ）：** 計78個のHTMLエンジン削除、検索結果ページのHTML取得削除、および非HTML `Content-Type`ガードは、SafeRustXNGの開発ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>）に実装されています。ビルド済みバイナリやコンテナイメージにこれらの変更が含まれることは確認されていないため、この構成を利用・検証する場合は本ブランチのソースからビルドしてください（[4. ソース](#4-ソース)または[2. Cargo](#2-cargo)）。ビルドされるバイナリ名は`rustxng`、バージョン表記は`0.26.0`のままです。上流`sahenjp/RustXNG`の`v0.26.0`リリースバイナリおよび`ghcr.io/sahenjp/rustxng:latest`イメージは上流のみ（履歴・参考用）であり、本ブランチの変更が含まれることは確認されていません。
+> **SafeRustXNGのソース導入（`main`ブランチ）：** 計78個のHTMLエンジン削除、検索結果ページのHTML取得削除、および非HTML `Content-Type`ガードは、SafeRustXNGの`main`ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）からのソース導入として提供しています。ビルド済みバイナリやコンテナイメージにこれらの変更が含まれることは確認されていないため、この構成を利用・検証する場合はSafeRustXNGの`main`からソースビルドしてください（[4. ソース](#4-ソース)または[2. Cargo](#2-cargo)）。ビルドされるバイナリ名は`rustxng`、バージョン表記は`0.26.0`のままのため、バージョン表示だけでは上流ビルドと区別できません。上流`sahenjp/RustXNG`の`v0.26.0`リリースバイナリおよび`ghcr.io/sahenjp/rustxng:latest`イメージは上流のみ（履歴・参考用）であり、SafeRustXNGの変更が含まれることは確認されていません。
 
 ### 1. リリースバイナリ
 
-> **上流のみ・履歴情報（`sahenjp/RustXNG` `v0.26.0`）：** [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases)で配布されているバイナリは上流リポジトリの成果物であり、`feat/remove-html-fetching`ブランチのHTMLエンジン削除や結果ページHTML取得削除が含まれることは**確認されていません**。現在のHTML取得なし構成を利用・検証する場合は、[4. ソース](#4-ソース)の手順でビルドしてください。
+> **上流のみ・履歴情報（`sahenjp/RustXNG` `v0.26.0`）：** [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases)で配布されているバイナリは上流リポジトリの成果物であり、SafeRustXNGのHTMLエンジン削除や結果ページHTML取得削除が含まれることは**確認されていません**。HTML取得なし構成を利用・検証する場合は、[4. ソース](#4-ソース)の手順でSafeRustXNGの`main`からビルドしてください。
 
 上流`sahenjp/RustXNG`の公開済みv0.26.0（履歴・参考）には、Linux x86_64（GNU・musl）、macOS arm64・x86_64、Windows x86_64があります。
 選択方法とチェックサム検証は[導入ガイド](docs/AGENT-SETUP.md)を参照してください。Rustのビルド環境は不要です。
@@ -101,28 +101,28 @@ cp LICENSE NOTICE "$HOME/.local/share/rustxng/"
 
 ### 2. Cargo
 
-現在のstable RustとCのビルド環境を用意し、本ブランチから導入します。
+現在のstable RustとCのビルド環境を用意し、SafeRustXNGの`main`ブランチから導入します。
 
 ```bash
-cargo install --git https://github.com/yuzolabs/SafeRustXNG.git --branch feat/remove-html-fetching --locked
+cargo install --git https://github.com/yuzolabs/SafeRustXNG.git --branch main --locked
 ```
 
 `rustxng`（バージョン表記`0.26.0`）と`rustxng-index`が導入されます。
-`Cargo.toml`で宣言されている最低対応版（MSRV）はRust 1.88（CIワークフローにRust 1.88.0ジョブを定義）で、このブランチのローカル検証はRust 1.98.0（`rustc 1.98.0 (88d9e12ae 2026-08-18)`）で実施しています。
-（`--git https://github.com/sahenjp/RustXNG.git --tag v0.26.0`は上流の履歴タグであり、本ブランチのHTML取得削除が含まれることは確認されていません。）
+`Cargo.toml`で宣言されている最低対応版（MSRV）はRust 1.88（CIワークフローにRust 1.88.0ジョブを定義）で、ローカル検証はRust 1.98.0（`rustc 1.98.0 (88d9e12ae 2026-08-18)`）で実施しています。
+（`--git https://github.com/sahenjp/RustXNG.git --tag v0.26.0`は上流の履歴タグであり、SafeRustXNGのHTML取得削除が含まれることは確認されていません。）
 
 ### 3. Docker
 
-本ブランチからローカルでイメージをビルドします。
+SafeRustXNGの`main`ブランチからローカルでイメージをビルドします。
 
 ```bash
-git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
 docker build -t rustxng .
 docker run --rm -p 127.0.0.1:29483:29483 rustxng
 ```
 
-上流`sahenjp/RustXNG`の配布イメージ（上流のみ・履歴情報。本ブランチのHTML取得削除が含まれることは確認されていません。既定ポートが8888の旧版を含む）では、起動引数も明示します。
+上流`sahenjp/RustXNG`の配布イメージ（上流のみ・履歴情報。SafeRustXNGのHTML取得削除が含まれることは確認されていません。既定ポートが8888の旧版を含む）では、起動引数も明示します。
 
 ```bash
 docker run --rm -p 127.0.0.1:29483:29483 -e SEARXNG_PORT=29483 ghcr.io/sahenjp/rustxng:latest --bind 0.0.0.0 --port 29483
@@ -132,14 +132,14 @@ docker run --rm -p 127.0.0.1:29483:29483 -e SEARXNG_PORT=29483 ghcr.io/sahenjp/r
 設定を渡す場合は、[settings.toml](settings.toml)全体をコピーして、イメージ名の前に
 `-v "$PWD/settings.toml:/app/settings.toml:ro"`を追加します。起動引数を変更するときは
 `--bind 0.0.0.0`と`--port 29483`の両方を指定してください。上流の配布イメージはLinux amd64向けです。
-他のCPUや本ブランチのHTML取得なし構成では、ソースからローカルビルドしてください。
+他のCPUやSafeRustXNGのHTML取得なし構成では、ソースからローカルビルドしてください。
 
 ### 4. ソース
 
-現在のHTML取得なしブランチをソースから直接ビルドして起動します。
+SafeRustXNGの`main`ブランチをソースから直接ビルドして起動します。
 
 ```bash
-git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
 cargo build --release --locked --bin rustxng
 ./target/release/rustxng --bind 127.0.0.1 --port 29483

@@ -1,10 +1,10 @@
 # RustXNG setup for AI agents
 
 Use this guide when a user asks you to install RustXNG and use it for search.
-Current HTML-free development branch: <https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching> (derived from upstream <https://github.com/sahenjp/RustXNG>, based on [SearXNG](https://github.com/searxng/searxng)).
+SafeRustXNG source repository (`main` branch): <https://github.com/yuzolabs/SafeRustXNG/tree/main> (derived from upstream <https://github.com/sahenjp/RustXNG>, based on [SearXNG](https://github.com/searxng/searxng)).
 日本語の開始指示は[README.ja.md](../README.ja.md)にあります。
 
-> **Important provenance note:** The removal of the 78 HTML engines, result-page HTML fetching, and outbound HTML response reads is implemented on the SafeRustXNG `feat/remove-html-fetching` branch. No prebuilt release binary or container image (including original upstream `sahenjp/RustXNG` `v0.26.0` releases and `ghcr.io/sahenjp/rustxng:latest` images) has been verified to contain these changes. A binary built from this branch is still named `rustxng` and still reports version `0.26.0`. For current HTML-free use or verification, build from source from this branch (step 2).
+> **Important provenance note:** The removal of the 78 HTML engines, result-page HTML fetching, and outbound HTML response reads is provided by the SafeRustXNG fork (<https://github.com/yuzolabs/SafeRustXNG/tree/main>). No prebuilt release binary or container image (including original upstream `sahenjp/RustXNG` `v0.26.0` releases and `ghcr.io/sahenjp/rustxng:latest` images) has been verified to contain these changes. A binary built from SafeRustXNG is still named `rustxng` and still reports version `0.26.0`, so version output alone cannot distinguish its provenance. For HTML-free use or verification, build from source from SafeRustXNG `main` (step 2).
 
 ## 1. Discover an existing service
 
@@ -20,22 +20,22 @@ curl --fail --max-time 3 http://127.0.0.1:29483/config
 
 Confirm that `/config` contains a `version` starting with `RustXNG` followed by a space, an `engines` array,
 and `brand.GIT_URL` equal to `https://github.com/sahenjp/RustXNG`, then verify search using step 4.
-Because this branch keeps the binary name `rustxng`, version `0.26.0`, and `brand.GIT_URL`, `/config` version fields and `rustxng --version` alone do not prove that an existing binary or service came from `feat/remove-html-fetching` rather than an upstream `sahenjp/RustXNG` `v0.26.0` binary.
-Only reuse an existing service or installed binary for HTML-free operation if its build provenance from this branch is known (and `/config` does not expose removed HTML engines); otherwise build from source in step 2.
+Because SafeRustXNG keeps the binary name `rustxng`, version `0.26.0`, and `brand.GIT_URL`, `/config` version fields and `rustxng --version` alone do not prove that an existing binary or service came from SafeRustXNG `main` rather than an upstream `sahenjp/RustXNG` `v0.26.0` binary.
+Only reuse an existing service or installed binary for HTML-free operation if its build provenance from SafeRustXNG `main` is known (and `/config` does not expose removed HTML engines); otherwise build from source in step 2.
 A health response alone is insufficient. If the port belongs to another service, choose an unused port and preserve that service.
 
-If a RustXNG binary built from this branch is already installed, check its version and use it before building another copy:
+If a RustXNG binary built from SafeRustXNG `main` is already installed, check its version and use it before building another copy:
 
 ```bash
 rustxng --version
 ```
 
-## 2. Build from source (current HTML-free branch)
+## 2. Build from source (SafeRustXNG `main`)
 
-To obtain the current HTML-free implementation, clone the `feat/remove-html-fetching` branch of SafeRustXNG and build `rustxng` from source with a current stable Rust toolchain (Rust 1.88 or newer) and C build prerequisites:
+To obtain the HTML-free implementation, clone the `main` branch of SafeRustXNG and build `rustxng` from source with a current stable Rust toolchain (Rust 1.88 or newer) and C build prerequisites:
 
 ```bash
-git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
 cargo build --release --locked --bin rustxng
 ./target/release/rustxng --version
@@ -47,7 +47,7 @@ Report missing build prerequisites rather than claiming success, and never subst
 
 ### Upstream-only / historical release binaries (`sahenjp/RustXNG` `v0.26.0`)
 
-> **Upstream-only / historical:** The prebuilt `v0.26.0` release assets on [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases) belong to the original upstream repository and are **not verified** to include the removal of the 78 HTML engines or result-page HTML fetching on `feat/remove-html-fetching`. Retain the asset details below only when a user explicitly asks for historical upstream `sahenjp/RustXNG` `v0.26.0` binaries.
+> **Upstream-only / historical:** The prebuilt `v0.26.0` release assets on [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases) belong to the original upstream repository and are **not verified** to include SafeRustXNG's removal of the 78 HTML engines or result-page HTML fetching. Retain the asset details below only when a user explicitly asks for historical upstream `sahenjp/RustXNG` `v0.26.0` binaries.
 
 Inspect the OS and CPU with platform tools (`uname -s` / `uname -m` on Unix;
 `[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture` in PowerShell).
@@ -90,7 +90,7 @@ Use the absolute installed path if its directory is not on `PATH`. Run that bina
 
 ## 3. Start a local service
 
-Only start a process if step 1 found no working service from this branch.
+Only start a process if step 1 found no working service from SafeRustXNG `main`.
 Bind to loopback and choose a free port. From the `SafeRustXNG` build directory (or using the installed binary path):
 
 ```bash
