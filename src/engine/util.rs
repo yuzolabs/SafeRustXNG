@@ -1,79 +1,11 @@
-//! Helpers shared by the engines: HTML extraction in the spirit of upstream's
-//! `xpath` engine, text cleanup and URL unwrapping.
-
-use scraper::{ElementRef, Html, Selector};
+//! Shared helpers for API/feed snippets, text cleanup and URL unwrapping.
 
 use super::{EngineError, EngineItem};
 use crate::results::{Priority, SearchResult, Template};
 
-/// Parse a document.
-pub fn parse_html(body: &str) -> Html {
-    Html::parse_document(body)
-}
-
-/// Compile a CSS selector, mapping a bad selector to an engine error.
-pub fn selector(css: &str) -> Result<Selector, EngineError> {
-    Selector::parse(css)
-        .map_err(|error| EngineError::Parse(format!("bad selector {css:?}: {error:?}")))
-}
-
-/// All elements matching `css`.
-pub fn select_elements<'a>(html: &'a Html, css: &str) -> Result<Vec<ElementRef<'a>>, EngineError> {
-    let selector = selector(css)?;
-    Ok(html.select(&selector).collect())
-}
-
-/// The first element matching `css`.
-pub fn select_one<'a>(html: &'a Html, css: &str) -> Result<Option<ElementRef<'a>>, EngineError> {
-    let selector = selector(css)?;
-    Ok(html.select(&selector).next())
-}
-
-/// The first child of `root` matching `css`.
-pub fn child<'a>(root: ElementRef<'a>, css: &str) -> Option<ElementRef<'a>> {
-    let selector = Selector::parse(css).ok()?;
-    root.select(&selector).next()
-}
-
-/// All children of `root` matching `css`.
-pub fn children<'a>(root: ElementRef<'a>, css: &str) -> Vec<ElementRef<'a>> {
-    match Selector::parse(css) {
-        Ok(selector) => root.select(&selector).collect(),
-        Err(_) => Vec::new(),
-    }
-}
-
 /// Collapse whitespace and trim.
 pub fn clean(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-/// The text of `root` itself.
-pub fn text(root: ElementRef<'_>) -> String {
-    clean(&root.text().collect::<Vec<_>>().join(" "))
-}
-
-/// The text of the first child matching `css`.
-pub fn text_of(root: ElementRef<'_>, css: &str) -> Option<String> {
-    child(root, css).map(text).filter(|value| !value.is_empty())
-}
-
-/// An attribute of the first child matching `css`.
-pub fn attr_of(root: ElementRef<'_>, css: &str, attribute: &str) -> Option<String> {
-    child(root, css)
-        .and_then(|element| element.value().attr(attribute))
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-}
-
-/// An attribute of `root`.
-pub fn attr(root: ElementRef<'_>, attribute: &str) -> Option<String> {
-    root.value()
-        .attr(attribute)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
 }
 
 /// Resolve a (possibly relative) URL against a base, unwrapping the redirect
@@ -518,14 +450,5 @@ mod tests {
     #[test]
     fn query_strings_are_encoded() {
         assert_eq!(query_string(&[("q", "a b".to_string())]), "q=a%20b");
-    }
-
-    #[test]
-    fn html_extraction_helpers_work() {
-        let html = parse_html("<ul><li><a href=\"/x\">Title</a><p>Body</p></li></ul>");
-        let items = select_elements(&html, "li").unwrap();
-        assert_eq!(items.len(), 1);
-        assert_eq!(text_of(items[0], "a").as_deref(), Some("Title"));
-        assert_eq!(attr_of(items[0], "a", "href").as_deref(), Some("/x"));
     }
 }

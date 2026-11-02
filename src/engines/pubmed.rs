@@ -110,9 +110,20 @@ impl Engine for PubMed {
 async fn fetch(client: &reqwest::Client, url: &str) -> Result<String, EngineError> {
     let response = client
         .get(url)
+        .header(
+            reqwest::header::ACCEPT,
+            "application/json,application/xml,text/xml",
+        )
         .send()
         .await
         .map_err(|error| EngineError::Message(format!("pubmed: request failed: {error}")))?;
+    crate::network::validate_machine_content_type(
+        response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+    )
+    .map_err(|error| EngineError::Parse(error.to_string()))?;
     if !response.status().is_success() {
         return Err(EngineError::Message(format!(
             "pubmed: http status {}",

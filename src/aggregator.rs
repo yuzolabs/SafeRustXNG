@@ -40,8 +40,6 @@ pub struct SearchRequest {
     pub include_domains: Vec<String>,
     /// Drop results whose host matches one of these domains.
     pub exclude_domains: Vec<String>,
-    /// Fetch the page text for the top results and return it as raw_content.
-    pub include_raw_content: bool,
     /// How the selected engines are started.
     pub strategy: crate::settings::SearchStrategy,
     /// Set once the site-scoped second pass already ran, so it cannot recurse.
@@ -67,7 +65,6 @@ impl SearchRequest {
             max_results: None,
             include_domains: Vec::new(),
             exclude_domains: Vec::new(),
-            include_raw_content: false,
             strategy: crate::settings::SearchStrategy::Parallel,
             site_retry_done: false,
             query,
@@ -438,9 +435,6 @@ impl Searcher {
             &request.exclude_domains,
             request.max_results,
         );
-        if request.include_raw_content {
-            self.attach_raw_content(&mut results).await;
-        }
 
         response.number_of_results = container.number_of_results();
         response.paging = container.paging;
@@ -692,7 +686,6 @@ impl Searcher {
                 .unwrap_or(self.settings.search.timeout_limit)
                 .min(2.0),
         );
-        second.include_raw_content = false;
         second.max_results = None;
         let response = Box::pin(self.search(second)).await;
         tracing::debug!(
@@ -811,10 +804,18 @@ impl Searcher {
             .map_err(|error| error.to_string())?;
         let response = client
             .post(&url)
+            .header(reqwest::header::ACCEPT, "application/json")
             .json(&body)
             .send()
             .await
             .map_err(|error| error.to_string())?;
+        crate::network::validate_machine_content_type(
+            response
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+        )
+        .map_err(|error| error.to_string())?;
         let status = response.status();
         let payload: serde_json::Value =
             response.json().await.map_err(|error| error.to_string())?;
@@ -840,46 +841,6 @@ impl Searcher {
                     .ok_or_else(|| "embeddings: missing vector".to_string())
             })
             .collect()
-    }
-
-    async fn attach_raw_content(&self, results: &mut [SearchResult]) {
-        let limit = self.settings.search.raw_content_limit.max(1);
-        let count = results.len().min(limit);
-        if count == 0 {
-            return;
-        }
-        let texts = futures::future::join_all(
-            results
-                .iter()
-                .take(count)
-                .map(|result| self.page_text(&result.url)),
-        )
-        .await;
-        for (result, text) in results.iter_mut().take(count).zip(texts) {
-            result.raw_content = text;
-        }
-    }
-
-    /// The readable text of one page, `None` when it cannot be fetched.
-    async fn page_text(&self, url: &str) -> Option<String> {
-        // Result URLs come from third-party engines, so treat them as untrusted:
-        // an engine (or a poisoned result) must not make us fetch localhost or
-        // the cloud metadata endpoint on its behalf.
-        if !crate::web::image_proxy::is_public_url(url) {
-            tracing::debug!(url, "refusing to fetch a non-public page");
-            return None;
-        }
-        let request = crate::engine::EngineRequest::get(url)
-            .header("Accept", "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8");
-        let response = self
-            .network
-            .fetch(request, Duration::from_secs(4), Some(&self.cache), None)
-            .await
-            .ok()?;
-        let html = response.html().ok()?;
-        let text =
-            crate::content::main_text_limited(&html, self.settings.search.raw_content_chars.max(1));
-        if text.is_empty() { None } else { Some(text) }
     }
 
     /// Engine statistics for `/stats`.

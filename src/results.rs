@@ -113,9 +113,6 @@ pub struct SearchResult {
     /// Which extra result page this came from (0 = page 1).
     #[serde(skip)]
     pub deep_page: u32,
-    /// Readable page text, only when the request asked for raw content.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub raw_content: Option<String>,
     /// Whether the result belongs to the group of the previous one (UI only).
     #[serde(skip)]
     pub open_group: bool,
@@ -1545,12 +1542,9 @@ mod tests {
     }
 
     #[test]
-    fn raw_content_is_serialised_only_when_present() {
-        let mut result = sample("https://example.com/");
-        let plain = serde_json::to_value(&result).expect("json");
-        assert!(plain.get("raw_content").is_none());
-        result.raw_content = Some("page text".into());
-        let rich = serde_json::to_value(&result).expect("json");
-        assert_eq!(rich["raw_content"], "page text");
+    fn search_results_do_not_expose_page_content() {
+        let result = sample("https://example.com/");
+        let json = serde_json::to_value(&result).expect("json");
+        assert!(json.get("raw_content").is_none());
     }
 }

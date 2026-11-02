@@ -17,12 +17,12 @@
 use std::time::Duration;
 
 use axum::extract::{Query, State};
-use axum::http::{HeaderMap, StatusCode, header};
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 
 use super::AppState;
-use super::image_proxy::{is_public_url, is_valid, signature};
+use super::image_proxy::{is_public_url, is_valid, sandboxed_image_response, signature};
 use crate::engine::EngineRequest;
 
 /// The path of the favicon proxy (upstream's 'favicon_proxy' route).
@@ -114,14 +114,7 @@ pub async fn handler(
     for path in CANDIDATE_PATHS {
         let url = format!("{origin}{path}");
         if let Some((content_type, body)) = fetch_favicon(&state, &url).await {
-            return (
-                [
-                    (header::CONTENT_TYPE, content_type),
-                    (header::CACHE_CONTROL, format!("max-age={CACHE_MAX_AGE}")),
-                ],
-                body,
-            )
-                .into_response();
+            return sandboxed_image_response(content_type, CACHE_MAX_AGE, body);
         }
     }
     (StatusCode::NOT_FOUND, "no favicon found").into_response()

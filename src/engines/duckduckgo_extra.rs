@@ -126,7 +126,7 @@ impl Engine for DuckDuckGoExtra {
             self.path(),
             query_string(&pairs)
         ))
-        .header("Accept", "*/*")
+        .header("Accept", "application/json")
         .header("Referer", "https://duckduckgo.com/")
         .header("Host", "duckduckgo.com");
         request = request.cookie("ad", &lang);

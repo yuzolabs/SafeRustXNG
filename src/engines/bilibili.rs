@@ -110,7 +110,7 @@ impl Engine for Bilibili {
         Ok(
             EngineRequest::get(format!("{base}?{}", query_string(&pairs)))
                 .header("Referer", "https://www.bilibili.com/")
-                .header("Accept", "application/json, text/javascript, */*; q=0.01")
+                .header("Accept", "application/json, text/javascript")
                 .cookie("innersign", "0")
                 .cookie("buvid3", BUVID3)
                 .cookie("i-wanna-go-back", "-1")

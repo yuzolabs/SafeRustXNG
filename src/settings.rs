@@ -342,9 +342,6 @@ pub struct Search {
     pub staged_tier: usize,
     /// The staged strategy stops starting new tiers at this many results.
     pub staged_min_results: usize,
-    /// How many of the top results get their page text when the request asks
-    /// for raw content. Larger means richer answers, slower fetches.
-    pub raw_content_limit: usize,
     /// Strength of the URL/title query-term signal blended into the ranking.
     /// 0 keeps pure upstream position fusion; higher values lift the page that
     /// actually matches the query the way a neural ranker does.
@@ -360,8 +357,6 @@ pub struct Search {
     pub local_index_path: String,
     /// Set false to keep the index on disk but out of the ranking.
     pub local_index_merge: bool,
-    /// Longest page text returned per result by include_raw_content.
-    pub raw_content_chars: usize,
     /// How many extra result pages of the paging engines to merge into the
     /// answer. 0 (the default) only uses page 1; 1 adds page 2, and so on.
     pub deep_pages: u32,
@@ -417,13 +412,11 @@ impl Default for Search {
             strategy: SearchStrategy::Parallel,
             staged_tier: 8,
             staged_min_results: 10,
-            raw_content_limit: 5,
             relevance_weight: 4.0,
             embedding_url: String::new(),
             embedding_model: "BAAI/bge-small-en-v1.5".into(),
             local_index_path: String::new(),
             local_index_merge: true,
-            raw_content_chars: 8_000,
             deep_pages: 0,
             site_scoped_retry: false,
             authority_weight: 8.0,

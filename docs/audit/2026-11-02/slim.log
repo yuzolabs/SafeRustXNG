@@ -32,5 +32,5 @@
     Checking hyper-rustls v0.27.10
     Checking axum v0.8.9
     Checking reqwest v0.12.28
-    Checking rustxng v0.26.0 (/home/sahen/File/Prog/searxng-rust)
+    Checking rustxng v0.26.0 ($HOME/File/Prog/searxng-rust)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.82s

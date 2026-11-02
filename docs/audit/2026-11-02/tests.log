@@ -1,4 +1,4 @@
-   Compiling rustxng v0.26.0 (/home/sahen/File/Prog/searxng-rust)
+   Compiling rustxng v0.26.0 ($HOME/File/Prog/searxng-rust)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 22.65s
      Running unittests src/lib.rs (target/debug/deps/rustxng-305aa12155922851)
 

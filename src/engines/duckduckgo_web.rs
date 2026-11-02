@@ -74,7 +74,7 @@ impl Engine for DuckDuckGoWeb {
             }
         }
         let mut request = EngineRequest::get(format!("{LINKS_URL}?{}", query_string(&pairs)))
-            .header("Accept", "*/*")
+            .header("Accept", "application/json")
             .header("Sec-Fetch-Dest", "script")
             .header("Sec-Fetch-Mode", "no-cors")
             .header("Sec-Fetch-Site", "same-site")

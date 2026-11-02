@@ -27,7 +27,6 @@ pub mod answerers;
 pub mod autocomplete;
 pub mod cache;
 pub mod categories;
-pub mod content;
 pub mod deep_research;
 pub mod engine;
 pub mod engines;

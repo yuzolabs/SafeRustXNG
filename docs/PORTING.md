@@ -6,7 +6,7 @@
 
 1. **振る舞いを引き継ぐ**。クエリ構文、結果の統合・並び替え、設定の形式、API のパラメータ名とレスポンス項目は上流に合わせています。
 2. **Python のコードはコピーしない**。エンジンの URL・パラメータ・抽出項目といった「事実」だけを参照し、実装は Rust で書き直しています。データとして移植したのはロケール表（`searx/sxng_locales.py`）と外部 bang の縮小版のみです。
-3. **API キー不要のエンジンを優先する**。上流の 253 エンジンモジュールのうち、無料・無認証で動くものを選びました。
+3. **当初は API キー不要のエンジンを優先**しました（当時の上流は 253 エンジンモジュール）。現在の範囲は下記「エンジン対応」を参照してください。
 4. **違反・逸脱は隠さない**。上流と違う点はこのファイルに明記します。
 
 ## モジュール対応
@@ -18,7 +18,7 @@
 | `src/results.rs` | `searx/results.py`, `searx/result_types/` |
 | `src/engine/mod.rs` | `searx/engines/__init__.py` |
 | `src/engine/state.rs` | `searx/engines/__init__.py` の suspend / error 処理 |
-| `src/engine/util.rs` | `searx/utils.py`, `searx/engines/xpath.py` 相当の補助 |
+| `src/engine/util.rs` | `searx/utils.py` 相当の補助（API・フィード要約のタグ/エンティティ除去、RSS 解析、URL 展開。`src/engine/xpath.rs` と `src/engine/xml.rs` は削除済み） |
 | `src/engines/*.rs` | `searx/engines/*.py` |
 | `src/network.rs` | `searx/network/` |
 | `src/cache.rs` | `searx/cache.py` |
@@ -44,7 +44,7 @@
 | エンジンフレームワーク（paging / time_range / safesearch / language / weight / timeout） | 移植済み | `Engine` トレイト |
 | エンジンのサスペンドと統計 | 移植済み | `ban_time_on_fail`、`max_ban_time_on_fail`、`suspended_times` を反映 |
 | HTTP クライアント（UA ローテーション、プロキシ、リトライ、タイムアウト） | 移植済み | `outgoing` 設定に対応 |
-| 時間範囲フィルタ（`time_range`） | 移植済み | UI のセレクタと API の両方から指定可能。エンジン側はネイティブな日付フィルタへ変換（Google News `when:`、Bing `qft`、Crossref `from-pub-date`、GitHub `pushed:>`、arXiv の日付順ソート、Stack Exchange `fromdate`、Hacker News `numericFilters`、YouTube / Dailymotion の期間指定） |
+| 時間範囲フィルタ（`time_range`） | 移植済み | UI のセレクタと API の両方から指定可能。エンジン側はネイティブな日付フィルタへ変換（Google News `when:`、Bing News `qft`、Crossref `from-pub-date`、GitHub `pushed:>`、arXiv の日付順ソート、Stack Exchange `fromdate`、Hacker News `numericFilters`、Dailymotion の期間指定） |
 | 応答キャッシュ | 部分 | メモリ内 TTL + LRU のみ。上流の valkey / redis / sqlite バックエンドは未移植 |
 | メトリクス | 移植済み | メモリ内カウンタ、`/stats` と `/metrics`（OpenMetrics / Prometheus）。エンジン指標は上流と同じ `searxng_engines_*` 名 |
 | レート制限・bot 検出（`limiter.toml`、botdetection） | 部分 | `server.limiter = true` で動く簡易レート制限（クライアント単位の固定窓、`limiter_window` / `limiter_max`）。上流の botdetection（link token、Redis カウンタ、IP 範囲判定）は未移植 |
@@ -78,13 +78,10 @@
 
 ## エンジン対応
 
+人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および HTML 内の埋め込み JSON を使うものを含む）は削除しました。あわせて、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`、`src/content.rs`）、エンジン向け HTML/XPath パーサ（`src/engine/xpath.rs` / `src/engine/xml.rs`、`scraper` 依存）、および `rustxng-index crawl` の HTML クローラーも削除済みです（`rustxng-index` は既存インデックスの `search` / `stats` のみ対応し、`/research` は API・フィードの `result.content` のみを使用します。Web の HTML UI と API・フィード要約のマークアップ除去は維持しています）。以下は残っているエンジンの例です。登録の全体は `src/engines/mod.rs`、同梱設定は `settings.toml` を参照してください。非 HTML レスポンスを扱う構成であり、公式 API 限定や利用規約への適合を保証するものではありません。また、エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、履歴数値を現在の性能保証として扱うことはできません。
+
 | エンジン | 上流 | 逸脱・補足 |
 | --- | --- | --- |
-| duckduckgo | `duckduckgo.py` | HTML エンドポイント。上流の vqd 取得を伴う 2 ページ目以降の処理は未移植（`s@ オフセットで代替） |
-| google | `google.py` | HTML。JS 必須のインタースティシャルを検出したら `access denied` として報告 |
-| bing | `bing.py` | HTML。`/ck/a` の base64 リダイレクトを展開 |
-| brave | `brave.py` | HTML + Cookie（safesearch / country / ui_lang） |
-| mojeek | `mojeek.py` | HTML。上流の Altcha proof-of-work  solver は未移植で、チャレンジページは `captcha` として報告 |
 | mwmbl | `mwmbl.py` | JSON API |
 | google news | `google_news.py` | 上流は HTML をスクレイプ。本実装は同サービスの RSS を使用（JS 不要で公開日時と配信元が取れる） |
 | bing news | `bing_news.py` | 上流は内部 JSON（`/news/infinitescrollajax`）。本実装は RSS を使用し、`qft` の期間指定は上流と同じ |
@@ -95,8 +92,7 @@
 | github | `github.py` | `api.github.com`。`api_key` があれば Authorization を付与 |
 | stackexchange | `stackexchange.py` | `api_site` でサイトを選択（既定 stackoverflow） |
 | crates.io | `crates.py` | `/api/v1/crates` |
-| npm | `npm.py` | 上流は npms.io。本実装は npm レジストリの検索 API（維持されている方）。索引が違うため結果セットは一致しない（[docs/BENCHMARK.md](BENCHMARK.md) 参照） |
-| pypi | `pypi.py` | HTML 検索結果 |
+| npm | `npm.py` | 上流と同じく `https://api.npms.io/v2/search`（`size=25`、`from` オフセット）を使用（`src/engines/npm.rs` 冒頭コメントの npm レジストリ表記は旧記述） |
 | docker hub | `docker_hub.py` | `/api/search/v3/catalog/search` |
 | arxiv | `arxiv.py` | Atom XML を quick-xml で解析。時間範囲指定時は `sortBy=submittedDate`（日付フィルタではなく並び順） |
 | 時間範囲の扱い | — | `time_range` 指定時: crossref=`from-pub-date` + 新しい順、github=`sort=updated` + `pushed:>日付`、stackexchange=`sort=creation` + `fromdate`、hackernews=`numericFilters` |
@@ -104,24 +100,20 @@
 | semantic scholar | `semantic_scholar.py` | 上流は内部 POST API（`X-S2-UI-Version` 必須）。本実装はキー不要の Graph API |
 | openstreetmap | `openstreetmap.py` | Nominatim。wikidata 連携や経路アンサーは未移植 |
 | photon | `photon.py` | `/api/` の GeoJSON |
-| youtube | `youtube_noapi.py` | 継続トークンの POST は未移植のため 2 ページ目以降は保証しない |
 | dailymotion | `dailymotion.py` | REST API。説明文は取得しない |
 | deezer | `deezer.py` | 1 ページ 10 件（上流は 25 件） |
 | openverse | `openverse.py` | 1 ページ 10 件（上流は 20 件） |
 | wikicommons | `wikicommons.py` | MediaWiki API。`gsrprop=snippet` は使わず `extmetadata` から説明・作者・ライセンスを取得 |
 
-### 意図的に対象外としたエンジン
+### 削除したエンジンの範囲
 
-- **API キーが必要なもの**（Brave API、Google CSE、Kagi、Exa、Wolfram など）
-- **Tor 前提のもの**（Ahmia など）
-- **海賊版・ファイル共有を目的とするもの**（torrent 系）。ライセンスではなく適法性の判断として外しています。
-- **XPath ベースの汎用エンジン**（`settings.yml` の `engine: xpath`）。YAML で宣言された抽出規則を汎用に扱う仕組みは持たず、必要なものは個別モジュールとして実装しています。
+- **HTML ページ依存の実装**: DuckDuckGo・Google・Bing の HTML 検索、Brave、Mojeek、PyPI、YouTube noapi など。Flickr noapi、Quark、Startpage、Sogou images、System1 rampjs のように HTML 内の JSON を抽出する実装も含みます。
+- **XPath ベースの汎用エンジン**（`engine: xpath`）: XML 用も含めて削除しました。既存の arXiv（Atom XML）や Google News / Bing News（RSS）は残しています。
+- API キーの要否やサービスの用途による一律の除外ではありません。`braveapi`、`google_cse`、`kagi`、`flickr`、`youtube_api` などは残っています。
 
 ## 既知の制約
 
-- **IP レピュテーション**: DuckDuckGo は CAPTCHA、Google は JS インタースティシャルを返すことがあります。本実装はこれをエラーとして表示するので、結果 0 件と区別できます。
-- **YouTube / Google の DOM**: セレクタは変わりやすいため、結果 0 件になる可能性があります。
-- **上流のテスト**: 上流には 1 万件規模のテストがありますが、本移植のテストは独自のもの（ユニット 95 件 + 統合 9 件）です。
+- **上流のテスト**: 本移植のテストは独自のものです。過去の記録では上流は 1 万件規模、本移植はユニット 95 件 + 統合 9 件でした。これらは現在のテスト数ではありません。
 - **パフォーマンス**: 上流のプロセッサ分離（`online.py` のスレッドプール）に相当する仕組みは `tokio` の非同期タスクで代替しています。
 
 ## ライセンス上の配慮
@@ -133,10 +125,9 @@
 
 ## 今後の課題
 
-1. 上流の Altcha solver 相当の実装（Mojeek など）と、botdetection 本体（link token、Redis カウンタ、IP 範囲判定）
-2. YouTube の継続トークン対応、Google の JS 必須ページへの代替手段
-3. favicon 収集（画像プロキシは実装済み）
-4. valkey / redis バックエンドのキャッシュ（メモリ内キャッシュと Prometheus 出力は実装済み）
-5. アンサー（通貨・天気・単位変換）とインフォボックスの生成側
-6. UI の多言語化（上流の翻訳カタログの取り込み。現在は英語 UI のみ）
-7. 上流テストスイートの取り込み（現在は独自テスト 120 件）
+1. botdetection 本体（link token、Redis カウンタ、IP 範囲判定）
+2. favicon 収集（画像プロキシは実装済み）
+3. valkey / redis バックエンドのキャッシュ（メモリ内キャッシュと Prometheus 出力は実装済み）
+4. アンサー（通貨・天気・単位変換）とインフォボックスの生成側
+5. UI の多言語化（上流の翻訳カタログの取り込み。現在は英語 UI のみ）
+6. 上流テストスイートの取り込み（過去の課題記録では独自テスト 120 件。現在の件数ではありません）

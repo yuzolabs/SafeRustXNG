@@ -20,6 +20,7 @@ RustXNG returns search evidence; a language model's answer accuracy is a separat
 
 No. RustXNG itself does not charge per search request, but servers, networking and optional paid providers still have costs.
 Queries go to external engines, which can rate-limit, block, require credentials or change their response formats.
+78 HTML-scraping engines (including the generic XPath engine) have been removed; the remaining non-HTML and internal JSON API engines are not a certification of official-API-only use or Terms-of-Service compliance.
 Many parallel agents can increase those problems. Caching, bounded concurrency and suitable engine selection help;
 local hosting does not bypass provider limits.
 
@@ -32,7 +33,7 @@ Inspect search results and `unresponsive_engines`; do not treat an HTTP 200 as p
 ## Is it as accurate as Exa or another commercial API?
 
 Only a comparison with stated datasets, dates and conditions can support that claim.
-Earlier [benchmark reports](BENCHMARK.md) compare specific workloads; their scores are not a universal ranking.
+Earlier [benchmark reports](BENCHMARK.md) and the [SealQA run](SEALQA.md) are historical snapshots recorded before 78 HTML engines (including generic XPath) and result-page HTML fetching were removed; no contemporaneous same-environment before-and-after comparison or renewed commercial-provider comparison has been performed since engine removal, and those historical numbers must not be treated as current guarantees.
 The [SealQA run](SEALQA.md) measures reference-page retrieval, not generated-answer correctness.
 Keep errors and misses in the denominator, record cache/local-index settings, and repeat runs before drawing conclusions.
 
@@ -50,9 +51,9 @@ Neither a high hit@1 score nor a large result count alone measures both tasks.
 
 ## Won't fetched page text fill the model context?
 
-It can. Start with `max_results=5`, relevant domains, and short snippets. Project the fields passed to the model locally
-when appropriate. Page fetching is optional and has known open security/resource findings; consult [the audit](AUDIT-2026-11-02.md).
-Current character limits are not tokenizer-specific budgets. HTTP compression saves transfer bytes, not model tokens.
+RustXNG no longer fetches result HTML pages: `include_raw_content`, `SearchResult.raw_content`, `src/content.rs`, and the `rustxng-index crawl` HTML crawler have been removed, and `/search` and `/research` only return snippets (`content`) supplied by upstream APIs and feeds.
+Large result sets can still fill model context. Start with `max_results=5`, relevant domains, and short snippets, and project the fields passed to the model locally when appropriate.
+Character limits are not tokenizer-specific budgets. HTTP compression saves transfer bytes, not model tokens.
 Relevant passages and an explicit output-budget contract are roadmap work, not a current guarantee.
 
 ## Does it support Linux ARM?

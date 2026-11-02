@@ -487,8 +487,8 @@ mod tests {
 
     #[test]
     fn shortcut_bang_selects_engine() {
-        let query = Query::parse("!ddg async rust", &registry(), &[]);
-        assert_eq!(query.engine_ref_names(), vec!["duckduckgo".to_string()]);
+        let query = Query::parse("!mwm async rust", &registry(), &[]);
+        assert_eq!(query.engine_ref_names(), vec!["mwmbl".to_string()]);
     }
 
     #[test]
@@ -506,13 +506,9 @@ mod tests {
 
     #[test]
     fn disabled_engines_are_skipped_in_category_bangs() {
-        let disabled = vec!["google images".to_string()];
+        let disabled = vec!["openverse".to_string()];
         let query = Query::parse("!images cats", &registry(), &disabled);
-        assert!(
-            !query
-                .engine_ref_names()
-                .contains(&"google images".to_string())
-        );
+        assert!(!query.engine_ref_names().contains(&"openverse".to_string()));
     }
 
     #[test]
@@ -559,8 +555,8 @@ mod tests {
 
     #[test]
     fn autocomplete_lists_bangs_and_languages() {
-        let query = Query::parse("!goo", &registry(), &[]);
-        assert!(query.autocomplete_list.contains(&"!google".to_string()));
+        let query = Query::parse("!wiki", &registry(), &[]);
+        assert!(query.autocomplete_list.contains(&"!wikipedia".to_string()));
         // ":jap" is a valid language code, so it is parsed instead of being
         // autocompleted; ":engl" is not.
         let query = Query::parse(":engl", &registry(), &[]);

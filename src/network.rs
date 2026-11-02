@@ -39,6 +39,8 @@ pub enum NetworkError {
     Transport(String),
     #[error("request could not be built: {0}")]
     Build(String),
+    #[error("machine response required: unsupported Content-Type {0}")]
+    UnsupportedContentType(String),
 }
 
 impl NetworkError {
@@ -48,8 +50,45 @@ impl NetworkError {
             Self::Timeout => FailureKind::Timeout,
             Self::Build(_) => FailureKind::Other,
             Self::Transport(_) => FailureKind::Other,
+            Self::UnsupportedContentType(_) => FailureKind::Parse,
             Self::Status { status, body, .. } => classify_status(*status, body),
         }
+    }
+}
+
+/// Validate a machine response Content-Type before reading any response body.
+/// Missing types and HTML/XHTML are rejected; API, feed, text and image types remain supported.
+pub fn validate_machine_content_type(content_type: Option<&str>) -> Result<(), NetworkError> {
+    let media_type = content_type
+        .unwrap_or_default()
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    let supported = media_type != "application/xhtml+xml"
+        && (matches!(
+            media_type.as_str(),
+            "application/json"
+                | "text/json"
+                | "application/xml"
+                | "text/xml"
+                | "text/plain"
+                | "text/event-stream"
+                | "application/javascript"
+                | "text/javascript"
+                | "application/x-javascript"
+                | "application/x-ndjson"
+                | "application/json-seq"
+        ) || media_type.ends_with("+json")
+            || media_type.ends_with("+xml")
+            || media_type.starts_with("image/"));
+    if supported {
+        Ok(())
+    } else {
+        Err(NetworkError::UnsupportedContentType(
+            content_type.unwrap_or("<missing>").to_string(),
+        ))
     }
 }
 
@@ -195,7 +234,7 @@ impl Network {
         headers.insert(
             reqwest::header::ACCEPT,
             HeaderValue::from_static(
-                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "application/json,application/xml,text/xml,application/rss+xml,application/atom+xml,text/plain,text/event-stream,application/javascript",
             ),
         );
         headers.insert(
@@ -238,6 +277,9 @@ impl Network {
         let cache_key = Cache::key(method, &request.url, &body_repr);
         if let Some(cache) = cache {
             if let Some(cached) = cache.get(&cache_key).await {
+                validate_machine_content_type(
+                    cached.headers.get("content-type").map(String::as_str),
+                )?;
                 debug!(url = %request.url, "cache hit");
                 return Ok(EngineResponse {
                     status: cached.status,
@@ -256,7 +298,23 @@ impl Network {
             if remaining.is_zero() {
                 return Err(NetworkError::Timeout);
             }
-            let outcome = self.send(client.clone(), &request, remaining).await;
+            let outcome = self
+                .send(client.clone(), &request, remaining)
+                .await
+                .and_then(|response| {
+                    if response.status >= 400 {
+                        Err(NetworkError::Status {
+                            status: response.status,
+                            body: String::from_utf8_lossy(
+                                &response.body[..response.body.len().min(4096)],
+                            )
+                            .to_string(),
+                            response: Box::new(response),
+                        })
+                    } else {
+                        Ok(response)
+                    }
+                });
             match outcome {
                 Ok(response) => {
                     if let Some(cache) = cache {
@@ -274,27 +332,6 @@ impl Network {
                                 .await;
                         }
                     }
-                    // A 429 usually clears within a second. Retrying once keeps
-                    // a good engine (Yahoo! JAPAN, Bing) alive instead of
-                    // suspending it for minutes.
-                    if response.status == 429 && attempt <= self.retries {
-                        let backoff = Duration::from_millis(700);
-                        if tokio::time::Instant::now() + backoff < deadline {
-                            debug!(url = %request.url, "rate limited, retrying after a pause");
-                            tokio::time::sleep(backoff).await;
-                            continue;
-                        }
-                    }
-                    if response.status >= 400 {
-                        return Err(NetworkError::Status {
-                            status: response.status,
-                            body: String::from_utf8_lossy(
-                                &response.body[..response.body.len().min(4096)],
-                            )
-                            .to_string(),
-                            response: Box::new(response),
-                        });
-                    }
                     return Ok(response);
                 }
                 Err(error) if attempt <= self.retries && is_retryable(&error) => {
@@ -302,7 +339,11 @@ impl Network {
                     if matches!(error, NetworkError::Timeout) {
                         return Err(error);
                     }
-                    let backoff = Duration::from_millis(250 * attempt as u64);
+                    let backoff = if matches!(error, NetworkError::Status { status: 429, .. }) {
+                        Duration::from_millis(700)
+                    } else {
+                        Duration::from_millis(250 * attempt as u64)
+                    };
                     if tokio::time::Instant::now() + backoff >= deadline {
                         return Err(error);
                     }
@@ -327,6 +368,27 @@ impl Network {
         let mut headers = self.default_headers();
         for (name, value) in request.headers.iter() {
             headers.insert(name.clone(), value.clone());
+        }
+        if headers
+            .get(reqwest::header::ACCEPT)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|accept| {
+                accept.split(',').any(|item| {
+                    matches!(
+                        item.split(';')
+                            .next()
+                            .unwrap_or_default()
+                            .trim()
+                            .to_ascii_lowercase()
+                            .as_str(),
+                        "text/html" | "application/xhtml+xml"
+                    )
+                })
+            })
+        {
+            return Err(NetworkError::Build(
+                "HTML requests are not supported".into(),
+            ));
         }
         if !request.cookies.is_empty() {
             let cookie = request
@@ -355,6 +417,12 @@ impl Network {
                     NetworkError::Transport(error.to_string())
                 }
             })?;
+            let content_type_validation = validate_machine_content_type(
+                response
+                    .headers()
+                    .get(reqwest::header::CONTENT_TYPE)
+                    .and_then(|value| value.to_str().ok()),
+            );
             let status = response.status().as_u16();
             let final_url = response.url().to_string();
             let mut headers = BTreeMap::new();
@@ -362,6 +430,22 @@ impl Network {
                 if let Ok(value) = value.to_str() {
                     headers.insert(name.as_str().to_lowercase(), value.to_string());
                 }
+            }
+            if let Err(error) = content_type_validation {
+                // Preserve HTTP failure classification without consuming a rejected body.
+                if status >= 400 {
+                    return Err(NetworkError::Status {
+                        status,
+                        body: String::new(),
+                        response: Box::new(EngineResponse {
+                            status,
+                            final_url,
+                            headers,
+                            body: Vec::new(),
+                        }),
+                    });
+                }
+                return Err(error);
             }
             let body = response
                 .bytes()
@@ -389,7 +473,7 @@ fn is_retryable(error: &NetworkError) -> bool {
         // a timeout already consumed the whole engine budget
         NetworkError::Timeout => false,
         NetworkError::Status { status, .. } => *status == 429 || *status >= 500,
-        NetworkError::Build(_) => false,
+        NetworkError::Build(_) | NetworkError::UnsupportedContentType(_) => false,
     }
 }
 

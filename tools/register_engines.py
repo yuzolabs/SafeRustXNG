@@ -6,7 +6,9 @@ carry a "// engine-id: <id>" comment. Both are supported.
 """
 import glob
 import os
+from pathlib import Path
 import re
+import tomllib
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOD = os.path.join(ROOT, "src", "engines", "mod.rs")
@@ -19,9 +21,31 @@ def module_name(filename):
     return "r" + name if name[0].isdigit() else name
 
 
+def filter_engine_settings(settings: str, valid_engine_ids: set[str]) -> str:
+    """Keep implemented engine entries without depending on TOML quoting or spacing.
+
+    Raises:
+        ValueError: An engine entry omits a non-empty string engine type.
+        tomllib.TOMLDecodeError: The settings are not valid TOML.
+    """
+    entries = tomllib.loads(settings).get("engines", [])
+    sections = re.split(r"(?m)(?=^[ \t]*\[\[engines\]\][ \t]*(?:#.*)?$)", settings)
+    kept = [sections[0]]
+    for entry, section in zip(entries, sections[1:], strict=True):
+        engine_id = entry.get("engine")
+        if not isinstance(engine_id, str) or not engine_id:
+            raise ValueError(
+                f"engine registration: entry {entry.get('name', '<unnamed>')!r} "
+                "needs a non-empty string engine type"
+            )
+        if engine_id in valid_engine_ids:
+            kept.append(section)
+    return "".join(kept)
+
+
 def main():
     # module -> engine id, taken from the dispatch arms that exist today
-    mod = open(MOD, encoding="utf-8").read()
+    mod = Path(MOD).read_text(encoding="utf-8")
     existing_arm = {
         m.group(2): m.group(1)
         for m in re.finditer(
@@ -36,7 +60,7 @@ def main():
         if base == "mod.rs":
             continue
         module = module_name(base)
-        text = open(path, encoding="utf-8").read()
+        text = Path(path).read_text(encoding="utf-8")
         if "pub fn from_config" not in text or "impl Engine for" not in text:
             print("[skip incomplete]", base)
             continue
@@ -63,6 +87,14 @@ def main():
     if no_id:
         print("[no engine id, skipped]", ", ".join(no_id))
 
+    # Remove registrations whose implementation was deleted before adding engines.
+    valid = {e["module"] for e in with_id}
+    mod = re.sub(
+        r"(?m)^pub mod (\w+);\n",
+        lambda match: match.group(0) if match.group(1) in valid else "",
+        mod,
+    )
+
     # 1. declarations: keep the existing block, append missing modules
     add = [e["module"] for e in with_id if e["module"] not in declared]
     if add:
@@ -72,7 +104,6 @@ def main():
         )
 
     # 2. dispatch arms: drop arms whose module file is gone, add missing new ones
-    valid = {e["module"] for e in with_id}
     kept = []
     for line in mod.split("\n"):
         m = re.match(r'^(\s+)"[^"]+" => \w+::\w+::from_config\(config\)\?,\s*$', line)
@@ -90,14 +121,14 @@ def main():
     )
     if new_arms:
         mod = mod.replace("        other => {", new_arms + "        other => {", 1)
-    open(MOD, "w", encoding="utf-8").write(mod)
-    print("engine modules:", len(with_id), "| new modules:", len(add))
-
     # 3. settings.toml entries
-    settings = open(SETTINGS, encoding="utf-8").read()
-    have_names = set(re.findall(r'^name = "([^"]+)"', settings, flags=re.M))
-    have_shortcuts = set(re.findall(r'^shortcut = "([^"]+)"', settings, flags=re.M))
-    have_engine = set(re.findall(r'^engine = "([^"]+)"', settings, flags=re.M))
+    settings = Path(SETTINGS).read_text(encoding="utf-8")
+    valid_engine_ids = {e["engine_id"] for e in with_id}
+    settings = filter_engine_settings(settings, valid_engine_ids)
+    entries = tomllib.loads(settings).get("engines", [])
+    have_names = {entry.get("name") for entry in entries}
+    have_shortcuts = {entry.get("shortcut") for entry in entries}
+    have_engine = {entry["engine"] for entry in entries}
     blocks = []
     for e in with_id:
         if e["engine_id"] in have_engine or e["module"] in have_names:
@@ -117,7 +148,12 @@ def main():
         have_names.add(e["module"])
     if blocks:
         settings = settings.rstrip("\n") + "\n\n" + "\n\n".join(blocks) + "\n"
-        open(SETTINGS, "w", encoding="utf-8").write(settings)
+    # Validate all settings before mutating either generated file.
+    with open(MOD, "w", encoding="utf-8") as handle:
+        handle.write(mod)
+    with open(SETTINGS, "w", encoding="utf-8") as handle:
+        handle.write(settings)
+    print("engine modules:", len(with_id), "| new modules:", len(add))
     print("settings entries added:", len(blocks))
 
 

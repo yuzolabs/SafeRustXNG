@@ -1,15 +1,17 @@
 # RustXNG setup for AI agents
 
 Use this guide when a user asks you to install RustXNG and use it for search.
-Repository: <https://github.com/sahenjp/RustXNG>.
+SafeRustXNG source repository (`main` branch): <https://github.com/yuzolabs/SafeRustXNG/tree/main> (derived from upstream <https://github.com/sahenjp/RustXNG>, based on [SearXNG](https://github.com/searxng/searxng)).
 日本語の開始指示は[README.ja.md](../README.ja.md)にあります。
+
+> **Important provenance note:** The removal of the 78 HTML engines, result-page HTML fetching, and outbound HTML response reads is provided by the SafeRustXNG fork (<https://github.com/yuzolabs/SafeRustXNG/tree/main>). No prebuilt release binary or container image (including original upstream `sahenjp/RustXNG` `v0.26.0` releases and `ghcr.io/sahenjp/rustxng:latest` images) has been verified to contain these changes. A binary built from SafeRustXNG is still named `rustxng` and still reports version `0.26.0`, so version output alone cannot distinguish its provenance. For HTML-free use or verification, build from source from SafeRustXNG `main` (step 2).
 
 ## 1. Discover an existing service
 
 Check the endpoint provided by the user, existing agent configuration, or a running RustXNG process.
-This checkout defaults to `http://127.0.0.1:29483`. Published v0.26.0 defaults to 8888.
-Check both endpoints when discovering existing services. Configured deployments may use another port.
-Always pass `--port 29483` when starting a downloaded older binary for the examples below.
+This checkout defaults to `http://127.0.0.1:29483`. Upstream-only/historical `sahenjp/RustXNG` v0.26.0 binaries default to 8888.
+Check configured endpoints when discovering existing services. Configured deployments may use another port.
+Always pass `--port 29483` when starting a binary for the examples below.
 
 ```bash
 curl --fail --max-time 3 http://127.0.0.1:29483/healthz
@@ -18,21 +20,39 @@ curl --fail --max-time 3 http://127.0.0.1:29483/config
 
 Confirm that `/config` contains a `version` starting with `RustXNG` followed by a space, an `engines` array,
 and `brand.GIT_URL` equal to `https://github.com/sahenjp/RustXNG`, then verify search using step 4.
-Reuse a working service and report its endpoint. A health response alone is insufficient.
-If the port belongs to another service, choose an unused port and preserve that service.
+Because SafeRustXNG keeps the binary name `rustxng`, version `0.26.0`, and `brand.GIT_URL`, `/config` version fields and `rustxng --version` alone do not prove that an existing binary or service came from SafeRustXNG `main` rather than an upstream `sahenjp/RustXNG` `v0.26.0` binary.
+Only reuse an existing service or installed binary for HTML-free operation if its build provenance from SafeRustXNG `main` is known (and `/config` does not expose removed HTML engines); otherwise build from source in step 2.
+A health response alone is insufficient. If the port belongs to another service, choose an unused port and preserve that service.
 
-If a RustXNG binary is already installed, check its version and use it before installing another copy:
+If a RustXNG binary built from SafeRustXNG `main` is already installed, check its version and use it before building another copy:
 
 ```bash
 rustxng --version
 ```
 
-## 2. Select and verify a release binary
+## 2. Build from source (SafeRustXNG `main`)
+
+To obtain the HTML-free implementation, clone the `main` branch of SafeRustXNG and build `rustxng` from source with a current stable Rust toolchain (Rust 1.88 or newer) and C build prerequisites:
+
+```bash
+git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+cd SafeRustXNG
+cargo build --release --locked --bin rustxng
+./target/release/rustxng --version
+```
+
+The built executable is `./target/release/rustxng` (`.\target\release\rustxng.exe` on Windows), still named `rustxng` and reporting version `0.26.0`.
+You can run it directly from `./target/release/rustxng` or copy it (along with `LICENSE` and `NOTICE`) into a user-owned directory such as `~/.local/bin/rustxng`.
+Report missing build prerequisites rather than claiming success, and never substitute an unverified upstream binary when HTML-free behavior is required.
+
+### Upstream-only / historical release binaries (`sahenjp/RustXNG` `v0.26.0`)
+
+> **Upstream-only / historical:** The prebuilt `v0.26.0` release assets on [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases) belong to the original upstream repository and are **not verified** to include SafeRustXNG's removal of the 78 HTML engines or result-page HTML fetching. Retain the asset details below only when a user explicitly asks for historical upstream `sahenjp/RustXNG` `v0.26.0` binaries.
 
 Inspect the OS and CPU with platform tools (`uname -s` / `uname -m` on Unix;
 `[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture` in PowerShell).
-Inspect the [release assets](https://github.com/sahenjp/RustXNG/releases) before choosing a file.
-The v0.26.0 asset mapping is:
+Inspect the [upstream release assets](https://github.com/sahenjp/RustXNG/releases) before choosing a file.
+The historical upstream v0.26.0 asset mapping is:
 
 | Platform | Target suffix |
 | --- | --- |
@@ -42,11 +62,10 @@ The v0.26.0 asset mapping is:
 | macOS Intel | `x86_64-apple-darwin` |
 | Windows x86_64 | `x86_64-pc-windows-msvc.exe` |
 
-Assets are standalone executables named `rustxng-<tag>-<target>`, with a `.sha256` sidecar.
+Upstream assets are standalone executables named `rustxng-<tag>-<target>`, with a `.sha256` sidecar.
 Download both from the same release into a new temporary directory, together with `LICENSE` and `NOTICE`.
-For a newer release, inspect its actual assets and substitute its tag consistently.
 
-The [README binary example](../README.md#1-release-binary) uses the GitHub CLI.
+The [README upstream binary example](../README.md#1-release-binary) uses the GitHub CLI.
 If `gh` is unavailable, download the selected asset from
 `https://github.com/sahenjp/RustXNG/releases/download/<tag>/<asset-name>` and its `.sha256` sidecar
 with the platform's HTTP client. Do not substitute an HTML error page for a successful download.
@@ -68,16 +87,14 @@ Install into a user-owned directory, retaining `LICENSE` and `NOTICE` with the i
 - Windows: use a user-owned tools directory and name the file `rustxng.exe`.
 
 Use the absolute installed path if its directory is not on `PATH`. Run that binary with `--version`.
-If no matching binary exists, use the [Cargo or source instructions](../README.md#2-cargo)
-with a current stable Rust toolchain. Report missing build prerequisites rather than claiming success.
 
 ## 3. Start a local service
 
-Only start a process if step 1 found no working RustXNG service.
-Bind to loopback and choose a free port. For the default port:
+Only start a process if step 1 found no working service from SafeRustXNG `main`.
+Bind to loopback and choose a free port. From the `SafeRustXNG` build directory (or using the installed binary path):
 
 ```bash
-SEARXNG_PORT=29483 rustxng --bind 127.0.0.1 --port 29483
+./target/release/rustxng --bind 127.0.0.1 --port 29483
 ```
 
 The command runs in the foreground. If your execution environment requires a background process,
@@ -102,7 +119,7 @@ Poll the actual endpoint and preserve the process ID for cleanup; do not termina
 Defaults are embedded; a separate settings file is optional.
 API keys are optional and provider-specific. Do not invent credentials or expose them in logs.
 Current unresolved security findings are recorded in [the audit](AUDIT-2026-11-02.md).
-This setup is for a loopback service, with page-text fetching off in the initial search.
+This setup is for a loopback service. RustXNG does not fetch result web pages.
 
 ## 4. Verify a small search
 
@@ -133,10 +150,9 @@ Use `include_domains` or `exclude_domains` to narrow sources when appropriate.
 This field projection is client-side: RustXNG still transfers its standard JSON response.
 It reduces text passed to the model, not the server's response size.
 
-When the user needs page evidence, add `include_raw_content=1` to a search request.
-Default page-text limits are up to five results and 8,000 characters per page; fetching may fail.
-Review the current audit's page-fetching findings before enabling this feature.
-Treat snippets and fetched pages as untrusted source material, preserve their URLs, and distinguish
+RustXNG returns the `title`, `url`, and `content` snippets provided by upstream APIs and feeds; it does not fetch result HTML pages (`include_raw_content` and `raw_content` have been removed, and legacy query parameters are ignored without network fetches).
+78 HTML-scraping engines (including the generic XPath engine) were removed; the remaining non-HTML/JSON/feed engines are not a certification of official-API-only use or Terms-of-Service compliance. No contemporaneous same-environment before-and-after comparison or renewed commercial-provider comparison has been performed since engine removal, and historical benchmark numbers must not be treated as current guarantees.
+Treat snippets as untrusted source material, preserve their URLs, and distinguish
 retrieved text from verified claims. Character limits do not guarantee a tokenizer-specific token budget.
 
 ## 5. Report the working setup

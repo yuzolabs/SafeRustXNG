@@ -89,7 +89,7 @@ impl Engine for Discourse {
             self.search_endpoint(),
             query_string(&pairs)
         ))
-        .header("Accept", "application/json, text/javascript, */*; q=0.01")
+        .header("Accept", "application/json, text/javascript")
         .header("X-Requested-With", "XMLHttpRequest");
         if let Some(api_key) = &self.meta.api_key {
             if !api_key.is_empty() {

@@ -79,6 +79,62 @@ async fn get_uri(app: &Router, uri: &str) -> (StatusCode, String, axum::http::He
 }
 
 #[tokio::test]
+async fn image_and_favicon_proxies_sandbox_svg_without_changing_image_bytes() {
+    use rustxng::web::image_proxy::signature;
+
+    for (content_type, payload) in [
+        (
+            "image/svg+xml",
+            r#"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(document.cookie)"><script>alert(1)</script><rect width="10" height="10"/></svg>"#,
+        ),
+        ("image/png", "raster image bytes"),
+    ] {
+        // A local HTTP proxy supplies bytes for public URLs without Internet access.
+        let upstream =
+            Router::new().fallback(get(move |headers: axum::http::HeaderMap| async move {
+                assert_eq!(headers[header::ACCEPT], "image/*");
+                ([(header::CONTENT_TYPE, content_type)], payload)
+            }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+        let mut settings = settings_for("http://unused.invalid");
+        settings.server.image_proxy = true;
+        settings
+            .outgoing
+            .proxies
+            .insert("http".into(), format!("http://{address}"));
+        let app = app(settings);
+        for (path, url, cache_seconds) in [
+            ("image_proxy", "http://example.com/image", 86_400),
+            ("favicon_proxy", "http://example.com", 604_800),
+        ] {
+            let uri = format!(
+                "/{path}?url={}&h={}",
+                rustxng::engine::util::encode(url),
+                signature("test", url),
+            );
+            let (status, body, headers) = get_uri(&app, &uri).await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(body, payload);
+            assert_eq!(headers[header::CONTENT_TYPE], content_type);
+            assert_eq!(
+                headers[header::CACHE_CONTROL],
+                format!("max-age={cache_seconds}")
+            );
+            assert_eq!(headers[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
+            assert_eq!(headers[header::REFERRER_POLICY], "no-referrer");
+            let policy = headers[header::CONTENT_SECURITY_POLICY].to_str().unwrap();
+            assert_eq!(
+                policy,
+                "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
+            );
+        }
+        server.abort();
+    }
+}
+
+#[tokio::test]
 async fn json_search_returns_merged_results() {
     let base_url = start_fake_engine().await;
     let app = app(settings_for(&base_url));
@@ -101,6 +157,58 @@ async fn json_search_returns_merged_results() {
     assert_eq!(json["results"][0]["title"], "The Rust Programming Language");
     assert_eq!(json["results"][0]["engines"][0], "mwmbl");
     assert!(json["number_of_results"].as_u64().unwrap() >= 2);
+}
+
+#[tokio::test]
+async fn search_and_research_never_fetch_result_pages() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let page_requests = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&page_requests);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let payload = serde_json::json!([{
+        "url": format!("http://{address}/document"),
+        "title": [{"value": "Rust reference"}],
+        "extract": [{"value": "API-provided snippet only."}]
+    }]);
+    let upstream = Router::new()
+        .route(
+            "/api/v1/search/",
+            get(move || {
+                let payload = payload.clone();
+                async move { axum::Json(payload) }
+            }),
+        )
+        .route(
+            "/document",
+            get(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+                async { axum::response::Html("<html><body>Must not be fetched</body></html>") }
+            }),
+        );
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let app = app(settings_for(&format!("http://{address}/api/v1")));
+
+    for uri in [
+        "/search?q=rust&format=json&include_raw_content=1",
+        "/search?q=rust&format=json&full=1&include_raw_content=true",
+    ] {
+        let (status, body, _) = get_uri(&app, uri).await;
+        assert_eq!(status, StatusCode::OK);
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(json["results"][0]["content"], "API-provided snippet only.");
+        assert!(json["results"][0].get("raw_content").is_none());
+    }
+    let (status, body, _) = get_uri(&app, "/research?q=rust").await;
+    assert_eq!(status, StatusCode::OK);
+    let report: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(
+        report["sources"][0]["content"],
+        "API-provided snippet only."
+    );
+    assert_eq!(page_requests.load(Ordering::SeqCst), 0);
+    server.abort();
 }
 
 #[tokio::test]
