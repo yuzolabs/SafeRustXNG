@@ -1,4 +1,4 @@
-//! rustxng — a Rust rewrite of the SearXNG metasearch engine.
+//! SafeRustXNG — a Rust rewrite of the SearXNG metasearch engine.
 //!
 //! SearXNG (https://github.com/searxng/searxng) is licensed AGPL-3.0-or-later.
 //! This crate is a derivative work and is distributed under the same license;

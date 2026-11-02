@@ -9,7 +9,7 @@ The owner coordinates investigation and disclosure; no response-time guarantee i
 
 ## Current limitations
 
-RustXNG retrieves untrusted upstream information. Local hosting and a successful health check do not establish safety.
+SafeRustXNG retrieves untrusted upstream information. Local hosting and a successful health check do not establish safety.
 The [2026-11-02 audit](docs/AUDIT-2026-11-02.md) records findings against commit fef998b, including DNS/IPv6/redirect
 SSRF gaps, unsafe result URL schemes, response-size limits, cache identity and research API resource limits.
 Read that report and the current fixes before exposing the service or enabling untrusted page fetching.

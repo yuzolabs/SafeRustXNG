@@ -1,6 +1,6 @@
 //! Local full-text index (BM25) for previously stored documents; no web crawler.
 //!
-//! This is the piece that makes RustXNG independent of upstream engines: a
+//! This is the piece that makes SafeRustXNG independent of upstream engines: a
 //! query answered from here costs milliseconds instead of a fan-out.
 //!
 //! Two tokenisations are indexed for every document without assuming a

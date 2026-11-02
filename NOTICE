@@ -1,5 +1,5 @@
-rustxng — NOTICE
-=====================
+SafeRustXNG — NOTICE
+====================
 
 This project is a Rust rewrite (port) of SearXNG, a free metasearch engine.
 
@@ -53,12 +53,11 @@ Third-party crates
   They are used unmodified through scraper; no files of these crates are
   changed here, so no additional source-offer obligation arises from them.
 
-Using RustXNG from an MIT/Apache project
-----------------------------------------
-  RustXNG is AGPL-3.0-or-later, so code that links it inherits AGPL.
+Using SafeRustXNG from an MIT/Apache project
+--------------------------------------------
+  SafeRustXNG is AGPL-3.0-or-later, so code that links it inherits AGPL.
   Running it as a separate program (spawning the binary, or talking to its
-  HTTP API on 127.0.0.1) keeps the caller under its own licence; this is how
-  rustdsh (MIT) integrates it.
+  HTTP API on 127.0.0.1) keeps the caller under its own licence.
 
-  AGPL section 13: if you run a modified RustXNG as a network service, users
+  AGPL section 13: if you run a modified SafeRustXNG as a network service, users
   interacting with it must be offered the corresponding source.

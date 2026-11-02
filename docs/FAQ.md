@@ -1,8 +1,8 @@
-# FAQ: what RustXNG does and what the benchmarks mean
+# FAQ: what SafeRustXNG does and what the benchmarks mean
 
-## Is RustXNG related to SearXNG?
+## Is SafeRustXNG related to SearXNG?
 
-Yes. RustXNG is a Rust implementation based on SearXNG's engine behavior and compatible HTTP conventions.
+Yes. SafeRustXNG is a Rust implementation based on SearXNG's engine behavior and compatible HTTP conventions, derived from [sahenjp/RustXNG](https://github.com/sahenjp/RustXNG).
 It is not an official replacement endorsed by SearXNG, and not simply a Rust binding around a running Python service.
 See [NOTICE](../NOTICE), [compatibility](COMPATIBILITY.md), and the AGPL-3.0-or-later [license](../LICENSE).
 
@@ -14,11 +14,11 @@ this pre-1.0 project does not promise a stable Rust API across releases.
 
 No. Implementation language can affect startup, memory and execution overhead; it does not make upstream facts true.
 Source selection, query handling, ranking, deduplication and failure handling can change retrieval quality independently.
-RustXNG returns search evidence; a language model's answer accuracy is a separate measurement.
+SafeRustXNG returns search evidence; a language model's answer accuracy is a separate measurement.
 
 ## Does local hosting remove all search costs and rate limits?
 
-No. RustXNG itself does not charge per search request, but servers, networking and optional paid providers still have costs.
+No. SafeRustXNG itself does not charge per search request, but servers, networking and optional paid providers still have costs.
 Queries go to external engines, which can rate-limit, block, require credentials or change their response formats.
 78 HTML-scraping engines (including the generic XPath engine) have been removed; the remaining non-HTML and internal JSON API engines are not a certification of official-API-only use or Terms-of-Service compliance.
 Many parallel agents can increase those problems. Caching, bounded concurrency and suitable engine selection help;
@@ -51,7 +51,7 @@ Neither a high hit@1 score nor a large result count alone measures both tasks.
 
 ## Won't fetched page text fill the model context?
 
-RustXNG no longer fetches result HTML pages: `include_raw_content`, `SearchResult.raw_content`, `src/content.rs`, and the `rustxng-index crawl` HTML crawler have been removed, and `/search` and `/research` only return snippets (`content`) supplied by upstream APIs and feeds.
+SafeRustXNG no longer fetches result HTML pages: `include_raw_content`, `SearchResult.raw_content`, `src/content.rs`, and the `rustxng-index crawl` HTML crawler have been removed (the read-only local index CLI is now `saferustxng-index`), and `/search` and `/research` only return snippets (`content`) supplied by upstream APIs and feeds.
 Large result sets can still fill model context. Start with `max_results=5`, relevant domains, and short snippets, and project the fields passed to the model locally when appropriate.
 Character limits are not tokenizer-specific budgets. HTTP compression saves transfer bytes, not model tokens.
 Relevant passages and an explicit output-budget contract are roadmap work, not a current guarantee.

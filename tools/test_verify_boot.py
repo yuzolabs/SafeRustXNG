@@ -41,7 +41,7 @@ class VerifyBootPathsTests(unittest.TestCase):
                 os.chdir(original)
         root = Path(__file__).resolve().parent.parent
         self.assertEqual(module.ROOT, root)
-        self.assertEqual(module.BIN, root / "target" / "release" / "rustxng")
+        self.assertEqual(module.BIN, root / "target" / "release" / "saferustxng")
 
     def test_boot_check_uses_repository_paths_and_stops_only_its_own_process(self) -> None:
         """Check command paths and cleanup using mocked process and HTTP calls."""

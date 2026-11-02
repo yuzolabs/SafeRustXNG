@@ -78,7 +78,7 @@ SearXNG のパラメータと衝突しない名前で、LLM のツール呼び�
 
 ## 商用 API をエンジンとして併用する
 
-RustXNG はメタ検索のハブなので、商用検索 API を登録エンジンの 1 つとして足せます。API のカバレッジと RustXNG 側のランキング（関連度・権威・スニペット）を組み合わせられます。
+SafeRustXNG はメタ検索のハブなので、商用検索 API を登録エンジンの 1 つとして足せます。API のカバレッジと SafeRustXNG 側のランキング（関連度・権威・スニペット）を組み合わせられます。
 
 `exaapi` / `braveapi` は実装済みで既定は無効です。設定ファイルで有効化します。
 
@@ -97,7 +97,7 @@ content_mode = "highlights"   # highlights | text
 ```
 
 ```bash
-SEARXNG_SETTINGS_PATH=my-settings.toml ./rustxng --port 29483
+SEARXNG_SETTINGS_PATH=my-settings.toml ./saferustxng --port 29483
 ```
 
 > 0.13.0 で `EngineConfig::disabled` を三状態（`Option<bool>`）にしました。以前は `disabled = false` が「未指定」と区別できず、既定で無効なエンジンを有効化できませんでした。

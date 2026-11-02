@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Offline end-to-end smoke test of the agent setup (stdlib only).
 
-Starts the real ``rustxng`` binary against a fake Mwmbl API served from
+Starts the real ``saferustxng`` binary against a fake Mwmbl API served from
 localhost and checks what an agent relies on:
 
 * ``/healthz`` answers,
-* ``/config`` reports a ``RustXNG ...`` version and the project ``GIT_URL``,
+* ``/config`` reports a ``SafeRustXNG ...`` version and the project ``GIT_URL``,
 * ``/search?format=json&max_results=5`` returns the fake engine's known result,
 * ``/opensearch.xml`` advertises the port actually listened on.
 
@@ -16,12 +16,12 @@ Cases:
 * ``env-port``: ``SEARXNG_PORT`` overrides ``server.port``.
 
 No external network and no LLM are used. The child gets an isolated settings
-file, every inherited ``SEARXNG_*``/``RUSTXNG_*`` variable is removed, and
-``RUSTXNG_IDLE_TIMEOUT=30`` makes a leaked child exit on its own. Only the
+file, every inherited ``SEARXNG_*``/``SAFERUSTXNG_*`` variable is removed, and
+``SAFERUSTXNG_IDLE_TIMEOUT=30`` makes a leaked child exit on its own. Only the
 processes started here are ever stopped; an occupied default port is an error.
 
 Usage:
-    python tools/smoke_agent_setup.py --binary target/debug/rustxng
+    python tools/smoke_agent_setup.py --binary target/debug/saferustxng
 """
 
 from __future__ import annotations
@@ -44,15 +44,15 @@ import urllib.request
 DEFAULT_PORT = 29483
 GIT_URL = "https://github.com/yuzolabs/SafeRustXNG"
 HOST = "127.0.0.1"
-QUERY = "rustxng smoke"
+QUERY = "saferustxng smoke"
 MAX_RESULTS = 5
 IDLE_TIMEOUT_SECONDS = "30"
 READY_TIMEOUT_SECONDS = 90.0
 REQUEST_TIMEOUT_SECONDS = 30.0
 STOP_TIMEOUT_SECONDS = 15.0
 
-KNOWN_URL = "https://example.org/rustxng-smoke/known-result"
-KNOWN_TITLE = "RustXNG smoke known result"
+KNOWN_URL = "https://example.org/saferustxng-smoke/known-result"
+KNOWN_TITLE = "SafeRustXNG smoke known result"
 KNOWN_EXTRACT = "The fake Mwmbl server answered this query."
 # More hits than max_results, so the cap is exercised.
 FILLER_COUNT = 7
@@ -76,15 +76,15 @@ def fake_mwmbl_results() -> list:
         {
             "url": KNOWN_URL,
             # Mwmbl splits text into highlighted fragments.
-            "title": [{"value": "RustXNG smoke "}, {"value": "known result"}],
+            "title": [{"value": "SafeRustXNG smoke "}, {"value": "known result"}],
             "extract": [{"value": KNOWN_EXTRACT}],
         }
     ]
     for index in range(1, FILLER_COUNT + 1):
         results.append(
             {
-                "url": f"https://example.org/rustxng-smoke/filler-{index}",
-                "title": [{"value": f"RustXNG smoke filler {index}"}],
+                "url": f"https://example.org/saferustxng-smoke/filler-{index}",
+                "title": [{"value": f"SafeRustXNG smoke filler {index}"}],
                 "extract": [{"value": f"Filler result number {index}."}],
             }
         )
@@ -156,7 +156,7 @@ def resolve_binary(path: str) -> str:
             return os.path.abspath(candidate)
     raise SmokeFailure(
         f"binary not found: {path!r} (tried {', '.join(candidates)}); "
-        "build it first with `cargo build --locked --bin rustxng`"
+        "build it first with `cargo build --locked --bin saferustxng`"
     )
 
 
@@ -212,7 +212,7 @@ def write_settings(path: str, api_url: str, port: int | None) -> None:
         "",
         "[server]",
         f"bind_address = {toml_string(HOST)}",
-        'secret_key = "rustxng-smoke-test-secret"',
+        'secret_key = "saferustxng-smoke-test-secret"',
         "limiter = false",
         "image_proxy = false",
     ]
@@ -244,17 +244,17 @@ def write_settings(path: str, api_url: str, port: int | None) -> None:
 
 
 def child_environment(extra: dict) -> dict:
-    """The parent environment without RustXNG/SearXNG overrides or proxies."""
+    """The parent environment without SafeRustXNG/SearXNG overrides or proxies."""
     env = {
         key: value
         for key, value in os.environ.items()
-        if not key.upper().startswith(("SEARXNG_", "RUSTXNG_"))
+        if not key.upper().startswith(("SEARXNG_", "SAFERUSTXNG_"))
         and key.upper() not in {"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"}
     }
     env["NO_PROXY"] = f"{HOST},localhost"
     env["no_proxy"] = env["NO_PROXY"]
-    env["RUSTXNG_IDLE_TIMEOUT"] = IDLE_TIMEOUT_SECONDS
-    env.setdefault("RUST_LOG", "info,rustxng=debug")
+    env["SAFERUSTXNG_IDLE_TIMEOUT"] = IDLE_TIMEOUT_SECONDS
+    env.setdefault("RUST_LOG", "info,saferustxng=debug")
     env.update(extra)
     return env
 
@@ -310,7 +310,7 @@ def wait_ready(process: subprocess.Popen, port: int) -> None:
     while time.monotonic() < deadline:
         code = process.poll()
         if code is not None:
-            raise SmokeFailure(f"rustxng exited with code {code} before becoming ready")
+            raise SmokeFailure(f"saferustxng exited with code {code} before becoming ready")
         try:
             status, _, _ = http_get(url)
             if status == 200:
@@ -331,8 +331,10 @@ def check_config(base: str) -> None:
         raise SmokeFailure(f"/config returned HTTP {status}")
     config = json.loads(body)
     version = config.get("version", "")
-    if not isinstance(version, str) or not version.startswith("RustXNG"):
-        raise SmokeFailure(f"/config version {version!r} does not start with 'RustXNG'")
+    if not isinstance(version, str) or not version.startswith("SafeRustXNG "):
+        raise SmokeFailure(f"/config version {version!r} does not start with 'SafeRustXNG '")
+    if config.get("instance_name") != "SafeRustXNG":
+        raise SmokeFailure(f"/config instance_name is {config.get('instance_name')!r}")
     git_url = (config.get("brand") or {}).get("GIT_URL")
     if git_url != GIT_URL:
         raise SmokeFailure(f"/config brand.GIT_URL is {git_url!r}, expected {GIT_URL!r}")
@@ -409,7 +411,7 @@ def run_case(
     case_dir = os.path.join(workdir, name)
     os.makedirs(case_dir)
     settings_path = os.path.join(case_dir, "settings.toml")
-    log_path = os.path.join(case_dir, "rustxng.log")
+    log_path = os.path.join(case_dir, "saferustxng.log")
     write_settings(settings_path, fake.api_url, settings_port)
 
     command = [binary, "--config", settings_path] + args
@@ -441,11 +443,11 @@ def run_case(
                     f"settings port {unused_port} is listening; the override was ignored"
                 )
             if process.poll() is not None:
-                raise SmokeFailure(f"rustxng exited early with code {process.returncode}")
+                raise SmokeFailure(f"saferustxng exited early with code {process.returncode}")
         except (SmokeFailure, ValueError, OSError, urllib.error.URLError) as error:
             stop_child(process)
             log.close()
-            print(f"----- rustxng log ({name}) -----\n{read_log(log_path)}\n-----")
+            print(f"----- saferustxng log ({name}) -----\n{read_log(log_path)}\n-----")
             raise SmokeFailure(f"[{name}] {error}") from error
     finally:
         if process is not None:
@@ -457,13 +459,13 @@ def run_case(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--binary", required=True, help="path to the rustxng binary")
+    parser.add_argument("--binary", required=True, help="path to the saferustxng binary")
     parser.add_argument(
         "--keep-temp", action="store_true", help="keep the temporary directory"
     )
     options = parser.parse_args()
 
-    workdir = tempfile.mkdtemp(prefix="rustxng-smoke-")
+    workdir = tempfile.mkdtemp(prefix="saferustxng-smoke-")
     failures = []
     try:
         binary = resolve_binary(options.binary)

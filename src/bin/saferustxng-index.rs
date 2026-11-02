@@ -1,12 +1,12 @@
 //! Query and inspect an existing local index without making network requests.
 //!
-//!   rustxng-index search --index ./index-data "tokio runtime"
-//!   rustxng-index stats --index ./index-data
+//!   saferustxng-index search --index ./index-data "tokio runtime"
+//!   saferustxng-index stats --index ./index-data
 
 use std::path::PathBuf;
 use std::time::Instant;
 
-use rustxng::localindex::LocalIndex;
+use saferustxng::localindex::LocalIndex;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -19,7 +19,7 @@ fn main() {
 fn run_index_command(args: &[String]) -> Result<(), String> {
     let command = args.first().map(String::as_str).unwrap_or("");
     if !matches!(command, "search" | "stats") {
-        return Err("usage: rustxng-index <search|stats> [--index PATH] [--limit N] [QUERY]; HTML crawling is not supported".into());
+        return Err("usage: saferustxng-index <search|stats> [--index PATH] [--limit N] [QUERY]; HTML crawling is not supported".into());
     }
     let options = IndexOptions::parse(&args[1..])?;
     match command {

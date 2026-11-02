@@ -1,19 +1,19 @@
-//! Binary entry point: `rustxng [--config FILE] [--bind ADDRESS] [--port PORT]`.
+//! Binary entry point: `saferustxng [--config FILE] [--bind ADDRESS] [--port PORT]`.
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use rustxng::aggregator::Searcher;
-use rustxng::settings::Settings;
-use rustxng::version::version_string;
-use rustxng::web::{self, AppState};
+use saferustxng::aggregator::Searcher;
+use saferustxng::settings::Settings;
+use saferustxng::version::version_string;
+use saferustxng::web::{self, AppState};
 
-const HELP: &str = "rustxng - a Rust rewrite of the SearXNG metasearch engine
+const HELP: &str = "SafeRustXNG - a Rust rewrite of the SearXNG metasearch engine
 
 USAGE:
-    rustxng [OPTIONS]
+    saferustxng [OPTIONS]
 
 OPTIONS:
     -c, --config <FILE>    Settings file (default: $SEARXNG_SETTINGS_PATH)
@@ -24,7 +24,8 @@ OPTIONS:
 
 ENVIRONMENT:
     SEARXNG_SETTINGS_PATH, SEARXNG_BIND_ADDRESS, SEARXNG_PORT, SEARXNG_SECRET,
-    SEARXNG_BASE_URL, SEARXNG_DEBUG, SEARXNG_ENABLE_METRICS, RUST_LOG
+    SEARXNG_BASE_URL, SEARXNG_DEBUG, SEARXNG_ENABLE_METRICS,
+    SAFERUSTXNG_IDLE_TIMEOUT, RUST_LOG
 ";
 
 struct Args {
@@ -81,7 +82,7 @@ async fn main() -> ExitCode {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info,rustxng=debug")),
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info,saferustxng=debug")),
         )
         .init();
 
@@ -192,9 +193,9 @@ fn unix_now() -> u64 {
         .unwrap_or(0)
 }
 
-/// The idle timeout the settings or RUSTXNG_IDLE_TIMEOUT ask for.
+/// The idle timeout the settings or SAFERUSTXNG_IDLE_TIMEOUT ask for.
 fn idle_timeout_seconds(state: &AppState) -> u64 {
-    if let Ok(value) = std::env::var("RUSTXNG_IDLE_TIMEOUT") {
+    if let Ok(value) = std::env::var("SAFERUSTXNG_IDLE_TIMEOUT") {
         if let Ok(seconds) = value.trim().parse() {
             return seconds;
         }

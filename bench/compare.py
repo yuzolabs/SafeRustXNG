@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare a rustxng instance with a reference SearXNG instance.
+"""Compare a SafeRustXNG instance with a reference SearXNG instance.
 
 For every engine and query the script asks both instances for JSON results and
 reports (a) the latency distribution and (b) how much the result sets agree:
@@ -27,7 +27,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-# name on the rustxng side [= name on the SearXNG side]
+# name on the SafeRustXNG side [= name on the SearXNG side]
 DEFAULT_ENGINES = [
     "hackernews",
     "github",
@@ -107,7 +107,7 @@ def jaccard(left: list[str], right: list[str]) -> float:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--a", default="http://127.0.0.1:8899", help="rustxng base URL")
+    parser.add_argument("--a", default="http://127.0.0.1:8899", help="SafeRustXNG base URL")
     parser.add_argument("--b", default="http://127.0.0.1:8001", help="reference SearXNG base URL")
     parser.add_argument(
         "--engines",
@@ -147,7 +147,7 @@ def main() -> int:
         "repeats": args.repeats,
         "delay": args.delay,
     }
-    print(f"comparing A={args.a} (rustxng) with B={args.b} (searxng)")
+    print(f"comparing A={args.a} (SafeRustXNG) with B={args.b} (searxng)")
     print(f"{len(engines)} engines × {len(queries)} queries × {args.repeats} repeats\n")
     print(f"{'engine':<16} {'query':<26} {'A ms':>8} {'B ms':>8} {'A/B':>6} {'A n':>5} {'B n':>5} {'overlap':>8} {'top1':>6}")
 
