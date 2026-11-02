@@ -24,7 +24,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Tags and labels
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           # repository names must be lowercase, hence the literal path
           images: ghcr.io/yuzolabs/saferustxng
