@@ -32,6 +32,7 @@
 - `/config` brand URLs (`GIT_URL`, `DOCS_URL`, `ISSUE_URL`, `NEW_ISSUE_URL`) and the Marginalia engine User-Agent now point at `https://github.com/yuzolabs/SafeRustXNG`; `tools/smoke_agent_setup.py` expects the new `brand.GIT_URL`. Upstream `sahenjp/RustXNG` `v0.26.0` binaries keep reporting the upstream URLs.
 - `Cargo.toml` `repository` and the GHCR publish target now point at this repository; the workflow publishes `ghcr.io/yuzolabs/saferustxng` (the upstream `ghcr.io/sahenjp/rustxng` image remains an upstream-only/historical artifact).
 - Community, security, and governance references (README badges and links, CONTRIBUTING, CODE_OF_CONDUCT conduct-contact, SECURITY, GOVERNANCE, MAINTAINERS, issue-template contact links, CODEOWNERS, and `.github/repository-settings` operator commands including the release-tag ruleset bypass actor) now address `yuzolabs/SafeRustXNG`; the repository owner is recorded as `@yuzolabs`.
+- `.github/repository-settings/README.md` now documents listing rulesets before creating the desired `release-tags.json` ruleset via `POST` and using the returned ruleset ID for subsequent `GET`/`PUT` updates, instead of targeting upstream ruleset ID `26350142` (the release-tag ruleset itself remains unapplied).
 
 ## [0.26.0] - 2026-11-01
 
