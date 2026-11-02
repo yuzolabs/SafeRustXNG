@@ -170,12 +170,27 @@ pub async fn handler(
     if !content_type.starts_with("image/") {
         return (StatusCode::BAD_GATEWAY, "upstream did not return an image").into_response();
     }
+    sandboxed_image_response(content_type, 86_400, response.body)
+}
+
+/// Isolate proxied images, including SVG documents opened directly, from our origin.
+pub(super) fn sandboxed_image_response(
+    content_type: String,
+    cache_max_age: u64,
+    body: Vec<u8>,
+) -> Response {
     (
         [
             (header::CONTENT_TYPE, content_type),
-            (header::CACHE_CONTROL, "max-age=86400".to_string()),
+            (header::CACHE_CONTROL, format!("max-age={cache_max_age}")),
+            (
+                header::CONTENT_SECURITY_POLICY,
+                "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'".to_string(),
+            ),
+            (header::X_CONTENT_TYPE_OPTIONS, "nosniff".to_string()),
+            (header::REFERRER_POLICY, "no-referrer".to_string()),
         ],
-        response.body,
+        body,
     )
         .into_response()
 }
