@@ -28,6 +28,36 @@ cargo test --all-targets
 Use a topic branch, with one coherent purpose per PR. Keep unrelated dependency updates, formatting changes,
 generated datasets, and architecture changes out of a small fix.
 
+## GitHub Actions dependencies
+
+Workflow files under `.github/workflows/` use readable version tags while `.github/workflows/actions.lock` pins the
+resolved commit SHAs and repository provenance (`owner_id` and `repo_id`) via
+[GitHub Actions Lock](https://docs.github.com/en/actions/how-tos/secure-your-work/lock-workflow-dependencies)
+([`github/gh-actions-lock`](https://github.com/github/gh-actions-lock) `v0.4.0`).
+
+When adding, changing, or removing a workflow file or `uses` reference, install the same extension version used by CI
+(if not already installed) and update and verify the lockfile from the repository root with an authenticated `gh` CLI
+session:
+
+```bash
+gh extension install github/gh-actions-lock --pin v0.4.0
+gh actions-lock
+gh actions-lock --verify
+gh actions-lock --verify-local
+```
+
+- Do not edit `.github/workflows/actions.lock` by hand. Review the workflow changes and generated lockfile diff
+  together—treating `commit`, `owner_id`, and `repo_id` changes as dependency updates—and commit them in the same
+  change.
+- `gh actions-lock --verify` verifies upstream tag and repository provenance online (and runs read-only in the
+  `verify-actions-lock` job in `.github/workflows/ci.yml`). `gh actions-lock --verify-local` only checks offline
+  lockfile coverage and does not verify upstream provenance.
+- `gh actions-lock` keeps existing locked commits when mutable refs (such as `v1`) move upstream. To intentionally
+  advance a mutable ref after reviewing upstream history, run `gh actions-lock --relock` and inspect the diff.
+- Dependabot `github-actions` updates (`.github/dependabot.yml`) update `.github/workflows/actions.lock` in the same PR
+  without extra configuration. Locking does not select newer releases or enforce a release-age cooldown; review version
+  changes separately.
+
 ## Required evidence
 
 | Change | Checks |
