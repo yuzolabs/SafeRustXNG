@@ -108,7 +108,7 @@ jobs:
           fi
           cat "dist/$name.sha256"
           ls -l dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: saferustxng-${{ matrix.target }}
           path: dist/*
