@@ -15,7 +15,7 @@
 
 [English](README.md) · [エージェント向け導入ガイド](docs/AGENT-SETUP.md)
 
-[![CI](https://github.com/sahenjp/RustXNG/actions/workflows/ci.yml/badge.svg)](https://github.com/sahenjp/RustXNG/actions/workflows/ci.yml)
+[![CI](https://github.com/yuzolabs/SafeRustXNG/actions/workflows/ci.yml/badge.svg)](https://github.com/yuzolabs/SafeRustXNG/actions/workflows/ci.yml)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
 
 ## RustXNGの用途
@@ -214,8 +214,8 @@ Seal-0はSeal-Hardの部分集合で、重複する質問には同一の観測�
 
 ## コミュニティとメンテナンス
 
-質問・アイデアは[Discussions](https://github.com/sahenjp/RustXNG/discussions)へ。
-招待なしでfork・PRから参加できます。継続して担当したい方は[メンテナー参加フォーム](https://github.com/sahenjp/RustXNG/issues/new?template=maintainer_application.yml)で相談してください。
+質問・アイデアは[Discussions](https://github.com/yuzolabs/SafeRustXNG/discussions)へ。
+招待なしでfork・PRから参加できます。継続して担当したい方は[メンテナー参加フォーム](https://github.com/yuzolabs/SafeRustXNG/issues/new?template=maintainer_application.yml)で相談してください。
 [運営方針](GOVERNANCE.md)・[担当者一覧](MAINTAINERS.md)・[FAQ](docs/FAQ.md)・[ロードマップ](docs/ROADMAP.md)も参照してください。
 
 ## 開発への参加

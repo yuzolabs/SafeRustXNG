@@ -22,19 +22,19 @@ No collaborator invitation, organization transfer, PR merge, or release was perf
 An owner can reconcile repository and main settings after reviewing the live values:
 
 ```bash
-gh api repos/sahenjp/RustXNG
-gh api repos/sahenjp/RustXNG/branches/main/protection
-gh api repos/sahenjp/RustXNG/rulesets
+gh api repos/yuzolabs/SafeRustXNG
+gh api repos/yuzolabs/SafeRustXNG/branches/main/protection
+gh api repos/yuzolabs/SafeRustXNG/rulesets
 # Writes, only after reviewing the JSON:
-gh api --method PATCH repos/sahenjp/RustXNG --input .github/repository-settings/repository.json
-gh api --method PUT repos/sahenjp/RustXNG/branches/main/protection --input .github/repository-settings/main-protection.json
+gh api --method PATCH repos/yuzolabs/SafeRustXNG --input .github/repository-settings/repository.json
+gh api --method PUT repos/yuzolabs/SafeRustXNG/branches/main/protection --input .github/repository-settings/main-protection.json
 ```
 
-The tag ruleset already exists (ID 26350142). Review and update that ID rather than creating duplicates:
+Ruleset ID 26350142 was recorded in the original repository (`sahenjp/RustXNG`); in this repository, check the actual ID with `gh api repos/yuzolabs/SafeRustXNG/rulesets` first, then review and update that ruleset rather than creating duplicates:
 
 ```bash
-gh api repos/sahenjp/RustXNG/rulesets/26350142
-gh api --method PUT repos/sahenjp/RustXNG/rulesets/26350142 --input .github/repository-settings/release-tags.json
+gh api repos/yuzolabs/SafeRustXNG/rulesets/26350142
+gh api --method PUT repos/yuzolabs/SafeRustXNG/rulesets/26350142 --input .github/repository-settings/release-tags.json
 ```
 
 If ownership or the active maintainer roster changes, review the bypass account, CODEOWNERS, and approval count together.

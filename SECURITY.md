@@ -2,7 +2,7 @@
 
 ## Private reporting
 
-Please report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/sahenjp/RustXNG/security/advisories/new),
+Please report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/yuzolabs/SafeRustXNG/security/advisories/new),
 not a public Issue or Discussion. This feature is enabled for the repository.
 Include the affected version, configuration, minimal reproduction and expected impact, without real credentials or private data.
 The owner coordinates investigation and disclosure; no response-time guarantee is currently offered.

@@ -16,7 +16,7 @@ Copy this instruction into an agent that can run commands, or send it this READM
 
 [日本語](README.ja.md) · [Agent setup guide](docs/AGENT-SETUP.md)
 
-[![CI](https://github.com/sahenjp/RustXNG/actions/workflows/ci.yml/badge.svg)](https://github.com/sahenjp/RustXNG/actions/workflows/ci.yml)
+[![CI](https://github.com/yuzolabs/SafeRustXNG/actions/workflows/ci.yml/badge.svg)](https://github.com/yuzolabs/SafeRustXNG/actions/workflows/ci.yml)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
 
 ## Why RustXNG
@@ -218,8 +218,8 @@ use `max_results`, domain filters, and client-side projection today.
 
 ## Community and maintenance
 
-Questions and ideas: [Discussions](https://github.com/sahenjp/RustXNG/discussions).
-Contribute through a fork and PR, or [apply to maintain an area](https://github.com/sahenjp/RustXNG/issues/new?template=maintainer_application.yml).
+Questions and ideas: [Discussions](https://github.com/yuzolabs/SafeRustXNG/discussions).
+Contribute through a fork and PR, or [apply to maintain an area](https://github.com/yuzolabs/SafeRustXNG/issues/new?template=maintainer_application.yml).
 See [governance](GOVERNANCE.md), [the maintainer roster](MAINTAINERS.md),
 [FAQ](docs/FAQ.md) and [roadmap](docs/ROADMAP.md). No invitation is required to contribute.
 
