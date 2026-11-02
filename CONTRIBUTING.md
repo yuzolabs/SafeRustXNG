@@ -6,9 +6,9 @@ For sustained maintenance, see [GOVERNANCE.md](GOVERNANCE.md) and [MAINTAINERS.m
 
 ## Choose the right place
 
-- Reproducible bug or scoped feature: [Issues](https://github.com/sahenjp/RustXNG/issues).
-- Usage questions, exploratory ideas, or sharing an integration: [Discussions](https://github.com/sahenjp/RustXNG/discussions).
-- Security vulnerability: [private reporting](https://github.com/sahenjp/RustXNG/security/advisories/new), following [SECURITY.md](SECURITY.md).
+- Reproducible bug or scoped feature: [Issues](https://github.com/yuzolabs/SafeRustXNG/issues).
+- Usage questions, exploratory ideas, or sharing an integration: [Discussions](https://github.com/yuzolabs/SafeRustXNG/discussions).
+- Security vulnerability: [private reporting](https://github.com/yuzolabs/SafeRustXNG/security/advisories/new), following [SECURITY.md](SECURITY.md).
 - Maintainer participation: the dedicated Issue form. An application does not grant access automatically.
 
 Read existing Issues/PRs before starting. Large API, ranking, networking, and architecture changes should have an agreed

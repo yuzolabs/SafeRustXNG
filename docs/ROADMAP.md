@@ -47,6 +47,6 @@ do not use privileged `pull_request_target` execution of untrusted checkout code
 
 Documentation and translations, offline engine fixtures, benchmark reproduction, native ARM64 distribution,
 CI, observability and network-fetching safety are useful contribution areas.
-Use [CONTRIBUTING.md](../CONTRIBUTING.md), [Discussions](https://github.com/sahenjp/RustXNG/discussions),
-or the [maintainer application](https://github.com/sahenjp/RustXNG/issues/new?template=maintainer_application.yml).
+Use [CONTRIBUTING.md](../CONTRIBUTING.md), [Discussions](https://github.com/yuzolabs/SafeRustXNG/discussions),
+or the [maintainer application](https://github.com/yuzolabs/SafeRustXNG/issues/new?template=maintainer_application.yml).
 Participation is open; privileges require an explicit owner decision under [GOVERNANCE.md](../GOVERNANCE.md).

@@ -27,7 +27,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           # repository names must be lowercase, hence the literal path
-          images: ghcr.io/sahenjp/rustxng
+          images: ghcr.io/yuzolabs/saferustxng
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}

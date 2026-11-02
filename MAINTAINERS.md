@@ -4,10 +4,10 @@
 
 | Account | Responsibility | Repository access |
 | --- | --- | --- |
-| [sahenjp](https://github.com/sahenjp) | Owner, release authority, final decisions | Owner/admin |
+| [yuzolabs](https://github.com/yuzolabs) | Owner, release authority, final decisions | Owner/admin |
 
 No additional collaborator invitations have been sent as part of the community setup.
-[Apply to maintain an area](https://github.com/sahenjp/RustXNG/issues/new?template=maintainer_application.yml)
+[Apply to maintain an area](https://github.com/yuzolabs/SafeRustXNG/issues/new?template=maintainer_application.yml)
 or contribute without access through a fork and PR. See [GOVERNANCE.md](GOVERNANCE.md).
 
 ## Owner checklist before the first write invitation
@@ -36,25 +36,25 @@ personal-repository `maintain` or `triage` tier.
 ```bash
 # Verify the account and current permission first.
 gh api users/GITHUB_LOGIN --jq '{login, html_url}'
-gh api repos/sahenjp/RustXNG/collaborators/GITHUB_LOGIN/permission
+gh api repos/yuzolabs/SafeRustXNG/collaborators/GITHUB_LOGIN/permission
 
 # Before adding the first write collaborator: require one approval.
-gh api --method PATCH repos/sahenjp/RustXNG/branches/main/protection/required_pull_request_reviews \
+gh api --method PATCH repos/yuzolabs/SafeRustXNG/branches/main/protection/required_pull_request_reviews \
   -F required_approving_review_count=1
 
 # Send an invitation only for the approved account.
-gh api --method PUT repos/sahenjp/RustXNG/collaborators/GITHUB_LOGIN -f permission=push
+gh api --method PUT repos/yuzolabs/SafeRustXNG/collaborators/GITHUB_LOGIN -f permission=push
 
 # Inspect pending invitations and verify accepted access.
-gh api repos/sahenjp/RustXNG/invitations
-gh api repos/sahenjp/RustXNG/collaborators/GITHUB_LOGIN/permission
+gh api repos/yuzolabs/SafeRustXNG/invitations
+gh api repos/yuzolabs/SafeRustXNG/collaborators/GITHUB_LOGIN/permission
 ```
 
 Cancel an unaccepted invitation through Settings → Collaborators or the invitation API.
 Remove accepted access only after an explicit owner decision:
 
 ```bash
-gh api --method DELETE repos/sahenjp/RustXNG/collaborators/GITHUB_LOGIN
+gh api --method DELETE repos/yuzolabs/SafeRustXNG/collaborators/GITHUB_LOGIN
 ```
 
 Never paste tokens into Issues, PRs, application forms, or shell command arguments.

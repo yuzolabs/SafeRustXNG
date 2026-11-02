@@ -28,7 +28,7 @@ const DEFAULTS: EngineDefaults = EngineDefaults {
 const BASE_URL: &str = "https://api2.marginalia-search.com";
 const RESULTS_PER_PAGE: i64 = 20;
 const USER_AGENT: &str =
-    "Mozilla/5.0 (compatible; rustxng/0.2; +https://github.com/sahenjp/rustxng)";
+    "Mozilla/5.0 (compatible; rustxng/0.2; +https://github.com/yuzolabs/SafeRustXNG)";
 
 /// Marginalia, an independent search engine for the small web.
 pub struct Marginalia {

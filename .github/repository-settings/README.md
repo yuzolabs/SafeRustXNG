@@ -1,40 +1,40 @@
 # Repository settings record
 
-These JSON files record the settings applied on 2026-11-02. Committing them does **not** automatically apply settings.
+These JSON files hold repository settings payloads for `yuzolabs/SafeRustXNG`. Committing them does **not** automatically apply settings.
 Do not run an unreviewed settings file from a contributor branch with an administrator token.
 
-- `repository.json`: Discussions enabled, squash-only merges, automatic deletion of merged branches, auto-merge availability.
-- `main-protection.json`: up-to-date required checks from GitHub Actions app 15368, PR workflow,
-  conversation resolution, linear history, no force pushes or branch deletion.
-- `release-tags.json`: `v*` tag creation/update/deletion restricted, with only the owner's account as bypass actor.
+- `repository.json`: desired repository-level settings payload (Discussions enabled, squash-only merges, automatic deletion of merged branches, auto-merge availability).
+- `main-protection.json`: applied `main` branch protection (`strict=true` required checks from GitHub Actions app `15368`, PR workflow,
+  conversation resolution, linear history, no force pushes or branch deletion).
+- `release-tags.json`: applied tag ruleset (ID `26374379`, `Release tags: owner-controlled`, `enforcement: "active"`) restricting `refs/tags/v*` creation, update, and deletion, with only the owner account (`User` `240885066`, `yuzolabs`, `bypass_mode: "always"`) as bypass actor.
 
-The main approval count is initially zero because the owner is the only maintainer. Administrator emergency bypass
+The `main` approval count is initially zero (`required_approving_review_count=0`) because the owner is the only maintainer. Administrator emergency bypass
 is retained (`enforce_admins=false`); this is not an unrestricted bypass for ordinary write collaborators.
 Before the first write invitation, follow [MAINTAINERS.md](../../MAINTAINERS.md) and require one approval.
 
-Required check names match PR #23: Linux/macOS/Windows, no-default-features, msrv, docker.
-Main does not yet contain that new workflow until #23 merges. Other PRs need to update to that base to produce all checks.
+Required status check contexts in `main-protection.json` match the jobs in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml): `test (ubuntu-latest)`, `test (macos-latest)`, `test (windows-latest)`, `no-default-features`, `msrv`, and `docker` (all with GitHub Actions `app_id: 15368`).
 
-Actions workflow tokens were verified read-only, with automated PR approval disabled.
-Private vulnerability reporting was already enabled and remains enabled. First-time fork workflow approval remains enabled.
-No collaborator invitation, organization transfer, PR merge, or release was performed by this setup.
+Other repository-level policies (such as Actions workflow token permissions, private vulnerability reporting, and fork workflow approval policy) are not managed by the JSON files in this directory; verify them directly in the live repository settings rather than relying on the original upstream `sahenjp/RustXNG` setup record.
 
-An owner can reconcile repository and main settings after reviewing the live values:
+An owner can inspect and reconcile repository and `main` branch protection settings after reviewing the live values:
 
 ```bash
-gh api repos/sahenjp/RustXNG
-gh api repos/sahenjp/RustXNG/branches/main/protection
-gh api repos/sahenjp/RustXNG/rulesets
+gh api repos/yuzolabs/SafeRustXNG
+gh api repos/yuzolabs/SafeRustXNG/branches/main/protection
 # Writes, only after reviewing the JSON:
-gh api --method PATCH repos/sahenjp/RustXNG --input .github/repository-settings/repository.json
-gh api --method PUT repos/sahenjp/RustXNG/branches/main/protection --input .github/repository-settings/main-protection.json
+gh api --method PATCH repos/yuzolabs/SafeRustXNG --input .github/repository-settings/repository.json
+gh api --method PUT repos/yuzolabs/SafeRustXNG/branches/main/protection --input .github/repository-settings/main-protection.json
 ```
 
-The tag ruleset already exists (ID 26350142). Review and update that ID rather than creating duplicates:
+The active release-tag ruleset on `yuzolabs/SafeRustXNG` has ID `26374379` (upstream `sahenjp/RustXNG` used ruleset ID `26350142`). Because the owner account (`User` `240885066`, `yuzolabs`) has `bypass_mode: "always"`, non-bypass actors cannot create, update, or delete `refs/tags/v*`, but the owner can still move or delete `v*` tags and this ruleset does not make GitHub Release assets immutable. List and inspect existing ruleset `26374379` before updating it in place with `PUT` (do not run `POST` when the ruleset already exists, as that creates a duplicate; use `POST repos/yuzolabs/SafeRustXNG/rulesets` only to recreate the ruleset if `gh api repos/yuzolabs/SafeRustXNG/rulesets` shows it is absent, and record the new ID):
 
 ```bash
-gh api repos/sahenjp/RustXNG/rulesets/26350142
-gh api --method PUT repos/sahenjp/RustXNG/rulesets/26350142 --input .github/repository-settings/release-tags.json
+# List rulesets and inspect the applied release-tag ruleset (ID 26374379):
+gh api repos/yuzolabs/SafeRustXNG/rulesets
+gh api repos/yuzolabs/SafeRustXNG/rulesets/26374379
+
+# Update the existing ruleset in place, only after reviewing the JSON (do not POST a duplicate):
+gh api --method PUT repos/yuzolabs/SafeRustXNG/rulesets/26374379 --input .github/repository-settings/release-tags.json
 ```
 
 If ownership or the active maintainer roster changes, review the bypass account, CODEOWNERS, and approval count together.

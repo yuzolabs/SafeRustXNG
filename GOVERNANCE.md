@@ -5,7 +5,7 @@ Participation is open; repository access is granted explicitly, not by popularit
 
 ## Current responsibility
 
-- Repository owner and release authority: [@sahenjp](https://github.com/sahenjp).
+- Repository owner and release authority: [@yuzolabs](https://github.com/yuzolabs).
 - Additional maintainers: none appointed yet. Contributions and applications are welcome.
 - AI tools may assist development and review. The person submitting or merging a change remains responsible
   for understanding it, checking the diff, reproducing relevant tests, and disclosing material limitations.
@@ -27,7 +27,7 @@ A future organization transfer requires a separate owner decision; none is plann
 
 ## Apply to maintain an area
 
-Use the [maintainer application form](https://github.com/sahenjp/RustXNG/issues/new?template=maintainer_application.yml).
+Use the [maintainer application form](https://github.com/yuzolabs/SafeRustXNG/issues/new?template=maintainer_application.yml).
 Include your GitHub account, proposed area, relevant contributions or experience, review interests,
 and realistic availability. Experience from other projects counts; commit counts are not a ranking system.
 Do not put private contact information, credentials, or employment information in a public application.
