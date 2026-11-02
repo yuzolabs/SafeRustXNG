@@ -31,12 +31,14 @@ class VerifyBootPathsTests(unittest.TestCase):
     def test_repository_paths_do_not_depend_on_the_working_directory(self) -> None:
         """Check that loading outside the repository preserves repository paths."""
         original = Path.cwd()
-        try:
-            with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory:
+            try:
                 os.chdir(directory)
                 module = self.load_verify_boot()
-        finally:
-            os.chdir(original)
+            finally:
+                # Restore the working directory before the temporary cleanup:
+                # Windows refuses to delete the process working directory.
+                os.chdir(original)
         root = Path(__file__).resolve().parent.parent
         self.assertEqual(module.ROOT, root)
         self.assertEqual(module.BIN, root / "target" / "release" / "rustxng")
