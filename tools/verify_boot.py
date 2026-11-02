@@ -4,9 +4,10 @@ builds (by starting the binary and reading /config), and report any that fail.
 Requires cargo build --release done first.
 """
 import json, subprocess, sys, time, urllib.error, urllib.request
+from pathlib import Path
 
-ROOT = "/home/sahen/File/Prog/searxng-rust"
-BIN = ROOT + "/target/release/rustxng"
+ROOT = Path(__file__).resolve().parent.parent
+BIN = ROOT / "target" / "release" / "rustxng"
 
 def main():
     proc = subprocess.Popen([BIN, "--port", "8897", "--bind", "127.0.0.1"],
@@ -25,7 +26,7 @@ def main():
         # each engine must appear with its name
         names = {e["name"] for e in engines}
         settings_names = []
-        for line in open(ROOT + "/settings.toml", encoding="utf-8"):
+        for line in (ROOT / "settings.toml").read_text(encoding="utf-8").splitlines():
             if line.strip().startswith("name = "):
                 settings_names.append(line.split('"')[1])
         missing = [n for n in settings_names if n not in names]

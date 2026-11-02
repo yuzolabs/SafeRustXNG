@@ -1,6 +1,6 @@
-   Compiling rustxng v0.26.0 (/home/sahen/File/Prog/rustxng-audit-prs)
+   Compiling rustxng v0.26.0 ($HOME/File/Prog/rustxng-audit-prs)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 36.36s
-     Running unittests src/lib.rs (/home/sahen/File/Prog/searxng-rust/target/debug/deps/rustxng-305aa12155922851)
+     Running unittests src/lib.rs ($HOME/File/Prog/searxng-rust/target/debug/deps/rustxng-305aa12155922851)
 
 running 805 tests
 test aggregator::orchestration_tests::engine_budget_is_cut_by_the_search_deadline ... ok
@@ -811,20 +811,20 @@ test web::favicons::tests::private_and_unknown_origins_have_no_favicon_link ... 
 
 test result: ok. 805 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s
 
-     Running unittests src/main.rs (/home/sahen/File/Prog/searxng-rust/target/debug/deps/rustxng-c5b44a7652ed4a31)
+     Running unittests src/main.rs ($HOME/File/Prog/searxng-rust/target/debug/deps/rustxng-c5b44a7652ed4a31)
 
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-     Running unittests src/bin/rustxng-index.rs (/home/sahen/File/Prog/searxng-rust/target/debug/deps/rustxng_index-4b0f09857d0e273b)
+     Running unittests src/bin/rustxng-index.rs ($HOME/File/Prog/searxng-rust/target/debug/deps/rustxng_index-4b0f09857d0e273b)
 
 running 1 test
 test tests::crawl_follows_links_from_new_and_indexed_pages ... ok
 
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
 
-     Running tests/integration.rs (/home/sahen/File/Prog/searxng-rust/target/debug/deps/integration-0807f61bde21db19)
+     Running tests/integration.rs ($HOME/File/Prog/searxng-rust/target/debug/deps/integration-0807f61bde21db19)
 
 running 17 tests
 test image_proxy_refuses_unsigned_and_private_urls ... ok
@@ -847,7 +847,7 @@ test research_returns_evidence_without_an_llm ... ok
 
 test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
 
-     Running unittests examples/benchmark.rs (/home/sahen/File/Prog/searxng-rust/target/debug/examples/benchmark-7de5d494ee6d4d7e)
+     Running unittests examples/benchmark.rs ($HOME/File/Prog/searxng-rust/target/debug/examples/benchmark-7de5d494ee6d4d7e)
 
 running 0 tests
 
