@@ -20,8 +20,8 @@ Small documentation fixes can go straight to a PR. Follow [CODE_OF_CONDUCT.md](C
 Use stable Rust (minimum 1.88 for the current lockfile) and a C build toolchain.
 
 ```bash
-git clone https://github.com/sahenjp/RustXNG.git
-cd RustXNG
+git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+cd SafeRustXNG
 cargo test --all-targets
 ```
 
@@ -64,7 +64,7 @@ An empty GitHub check list is not a green CI result; first-time fork workflows m
    a provider working once is not enough evidence for enabling it in every general search.
 6. Avoid logging credentials. Preserve authors, dates and source URLs when the provider supplies them.
 
-Declarative `xpath` / `json_engine` / `mediawiki` engines may use `tools/import_engines.py`.
+Declarative `json_engine` / `mediawiki` engines may use `tools/import_engines.py`.
 Support is determined by working behavior, not by the count of files or configured entries.
 
 ## Benchmarks and claims

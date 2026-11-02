@@ -1,19 +1,19 @@
 # SearXNG 互換性の範囲
 
-**結論: プロトコル（HTTP API・検索構文・設定・データ形式）は上流と一致しています。** 一方、人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジンを含む）、および検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`）・HTML クローラー（`rustxng-index crawl`）は削除されています。残っている非 HTML（JSON API・Atom/RSS フィード・DB 等）エンジンは公式 API 限定や利用規約への適合を保証するものではなく、エンジン削除後の検索品質の比較可能性は再測定していません。残る主な差分はエンジン対象範囲、UI のマークアップ、i18n のロケール数（57 / 60）です。このページは「何が互換で、何が違うか」を検証可能な形でまとめたものです。
+**結論: 基本的な HTTP API・検索構文・設定・レスポンス形式は上流 SearXNG と互換ですが、下記の明示的な例外があります。** 人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジンを含む）、および検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`）・HTML クローラー（`rustxng-index crawl`）は削除されており、外部通信には非 HTML `Content-Type` ガードが適用されます。残っている非 HTML（JSON API・Atom/RSS フィード・DB 等）エンジンは公式 API 限定や利用規約への適合を保証するものではなく、エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っていません（履歴数値を現在の保証として扱うことはできません）。そのほか、エンジン対象範囲、UI のマークアップ、`/stats` の形式、i18n のロケール数（57 / 60）に差分があります。このページは「何が互換で、何が違うか」を検証可能な形でまとめたものです。
 
 ## 互換と言える範囲
 
 | 領域 | 状態 | 根拠 |
 | :--- | :--- | :--- |
 | 検索構文（`!engine` / `!category` / `:lang` / `<timeout` / `!!` / `!!bang`） | **互換** | 上流 `searx/query.py` と同じ判定順・同じ正規化 |
-| 結果の統合（重複排除・スコア・カテゴリ別グループ化） | **互換** | `searx/results.py` の `calculate_score` / `get_ordered_results` と同じ式 |
-| `/search` のパラメータ名・出力形式（html/json/csv/rss） | **互換** | 統合テストで検証 |
-| JSON API の形 | **互換（既定）** | 上流 `get_json_response` の 7 フィールドのみを出力。詳細版は `full=1` |
+| 結果の統合（重複排除・スコア・カテゴリ別グループ化） | **基本互換** | `searx/results.py` の `calculate_score` / `get_ordered_results` を基にした重複排除・カテゴリ別グループ化（スコアには `relevance_weight`・`authority_weight`・`embedding_weight` 等の追加補正あり） |
+| `/search` の基本パラメータ名・出力形式（html/json/csv/rss） | **基本互換** | 統合テストで検証（旧拡張の `include_raw_content` は削除・無視、利用可能エンジンは非 HTML のみ） |
+| JSON API の形 | **互換（既定）** | 上流 `get_json_response` の 7 フィールドのみを出力（旧独自拡張の `raw_content` フィールドは削除）。詳細版は `full=1` |
 | JSON の各要素の形 | **互換** | `answers` = `[{"answer":...}]`、`unresponsive_engines` = `[[engine, "Translated error"]]`、`template` = `"default.html"`、`metadata` = 文字列、`priority` 既定は空文字 |
 | CSV 出力 | **互換** | 上流 `write_csv_response` と同じ列（`title,url,content,host,engine,score,type`）と同じ行種別（result / answer / suggestion / correction） |
 | `/config` | **互換** | 上流と同じフィールド（`brand`、`limiter`、`locales`、`engines[].timeout` などを含む） |
-| 設定ファイル | **互換（YAML をそのまま読める）** | `--config settings.yml` / `SEARXNG_SETTINGS_PATH` に上流の YAML をそのまま指定可能。TOML も可 |
+| 設定ファイル | **基本互換（YAML / TOML）** | `--config settings.yml` / `SEARXNG_SETTINGS_PATH` に YAML または TOML を指定可能（削除された HTML エンジンや `raw_content_*` 設定は対象外） |
 | 環境変数（`SEARXNG_*`） | **互換** | 同じ名前を受け付け |
 | 外部 bang | **データ互換** | 上流の 13,561 件を同一データから生成 |
 | Cookie 名 | **互換** | `category` / `language` / `locale` / `safesearch` / `theme` / `disabled_engines` など上流と同じ（旧名 `categories` も読み取り可能） |
@@ -29,7 +29,7 @@
 
 ## エージェント向けの拡張（上流にないパラメータ）
 
-SearXNG のパラメータと衝突しない名前で、LLM のツール呼び出し向けの指定を追加しています。省略すれば従来の挙動のままです。
+SearXNG のパラメータと衝突しない名前で、LLM のツール呼び出し向けの指定を追加しています。省略時はこれらの追加フィルタや段階的打ち切りは行いません。
 
 | パラメータ | 意味 | 返り値への影響 |
 | :--- | :--- | :--- |
@@ -40,7 +40,7 @@ SearXNG のパラメータと衝突しない名前で、LLM のツール呼び�
 
 検索結果ページの HTML 本文取得（旧 `include_raw_content` パラメータおよび `SearchResult.raw_content` フィールド、`search.raw_content_limit` / `search.raw_content_chars` 設定）は削除されました。旧クエリパラメータが指定された場合も無視され、結果 URL への通信は行いません。
 
-**ランキングの差分（`search.relevance_weight`）**: 一般（マルチエンジン）検索では、URL + タイトル + スニペット（`content`）のクエリ語一致度でスコアを補正します（既定 4.0）。**単一エンジン指定では補正せず上流順を維持**するので、`engines=` での overlap@10 は上流と一致します。`relevance_weight = 0` にすれば一般検索も上流と完全に同一の順序になります。
+**ランキングの差分（`search.relevance_weight` ほか）**: 一般（マルチエンジン）検索では、URL + タイトル + スニペット（`content`）のクエリ語一致度でスコアを補正します（既定 4.0）。**単一エンジン指定ではこのクエリ語一致補正を行わず**、`relevance_weight = 0` にすれば一般検索でもこのクエリ語一致補正のみを無効化できます。ただし、これとは独立に `authority_weight` による権威度補正（`src/results.rs`）や設定時の `embedding_weight` による埋め込み類似度補正（`src/aggregator.rs`）が加わるほか、78 個の HTML エンジン削除や外部検索先の応答差もあるため、上流 SearXNG と同一のランキング式や検索結果順位にはなりません。
 
 応答自体の検証も行います。パースは通るが内容が明らかに架空・プレースホルダ・クエリと無関係な応答（上流 issue #6358 の「静かなゴミ混入」）は、結果に混ぜずにエンジンをサスペンドし、`unresponsive_engines` に `Suspicious response` として出します。
 
@@ -66,7 +66,7 @@ SearXNG のパラメータと衝突しない名前で、LLM のツール呼び�
 ## 検証の方法
 
 - 構文・統合ロジック・JSON/CSV の形: `cargo test`
-- 上流との過去の実測比較（HTML エンジン削除前の履歴スナップショット）: [BENCHMARK.md](BENCHMARK.md) と `bench/compare.py`（エンジン削除後の検索品質・比較可能性は未再測定）
+- 上流との過去の実測比較（HTML エンジン削除前の履歴スナップショット）: [BENCHMARK.md](BENCHMARK.md) と `bench/compare.py`（エンジン削除前後での同時期・同一環境の比較は未実施であり、履歴数値は現在の保証ではありません）
 - エンジン網羅率: `python3 tools/coverage.py /path/to/searxng settings.toml`
 
 ## 完全互換に近づけるには
@@ -104,7 +104,7 @@ SEARXNG_SETTINGS_PATH=my-settings.toml ./rustxng --port 29483
 
 ### 実測（100 問・履歴スナップショット）
 
-> **履歴スナップショット：** 下表は汎用 `xpath` を含む計 78 個の HTML 取得エンジンを削除する前の測定記録であり、エンジン削除後の検索品質や比較可能性は再測定していません。
+> **履歴スナップショット：** 下表は汎用 `xpath` を含む計 78 個の HTML 取得エンジンを削除する前の測定記録です。エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、これらの履歴数値を現在の性能保証として扱うことはできません。
 
 | 構成 | hit@1 | hit@5 | MRR |
 | --- | ---: | ---: | ---: |

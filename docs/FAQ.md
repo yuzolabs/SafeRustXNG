@@ -33,7 +33,7 @@ Inspect search results and `unresponsive_engines`; do not treat an HTTP 200 as p
 ## Is it as accurate as Exa or another commercial API?
 
 Only a comparison with stated datasets, dates and conditions can support that claim.
-Earlier [benchmark reports](BENCHMARK.md) and the [SealQA run](SEALQA.md) are historical snapshots recorded before 78 HTML engines (including generic XPath) and result-page HTML fetching were removed; retrieval quality comparability has not been remeasured after engine removal.
+Earlier [benchmark reports](BENCHMARK.md) and the [SealQA run](SEALQA.md) are historical snapshots recorded before 78 HTML engines (including generic XPath) and result-page HTML fetching were removed; no contemporaneous same-environment before-and-after comparison or renewed commercial-provider comparison has been performed since engine removal, and those historical numbers must not be treated as current guarantees.
 The [SealQA run](SEALQA.md) measures reference-page retrieval, not generated-answer correctness.
 Keep errors and misses in the denominator, record cache/local-index settings, and repeat runs before drawing conclusions.
 

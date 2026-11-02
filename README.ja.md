@@ -4,11 +4,12 @@
 
 コマンドを実行できるエージェントに、次の指示またはこのREADMEを渡してください。
 
-> <https://github.com/sahenjp/RustXNG> のRustXNGを導入し、Web検索に使ってください。
-> 最初に既存のRustXNGサービスを確認し、利用できれば再利用してください。
-> なければOSとCPUを判定し、対応するリリースバイナリを取得してSHA-256を照合し、ユーザー用ディレクトリに導入してください。
-> [エージェント向け導入ガイド](https://github.com/sahenjp/RustXNG/blob/main/docs/AGENT-SETUP.md)に従ってください。
-> loopbackで起動し、`/healthz`と`max_results=5`のJSON検索を確認してください。
+> SafeRustXNGの`feat/remove-html-fetching`ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>）からRustXNGを導入し、Web検索に使ってください。
+> 最初に既存のRustXNGサービスを確認し、このブランチからビルドされたものと確認できる場合のみ再利用してください。
+> それ以外は、`git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git`で取得し、
+> `cargo build --release --locked --bin rustxng`でソースからビルドしてください（バイナリ名は`rustxng`、バージョン表記は`0.26.0`のままです。上流`sahenjp/RustXNG`の公開済み`v0.26.0`バイナリやイメージに本ブランチのHTML取得削除が含まれることは確認されていません）。
+> [エージェント向け導入ガイド](https://github.com/yuzolabs/SafeRustXNG/blob/feat/remove-html-fetching/docs/AGENT-SETUP.md)に従ってください。
+> `./target/release/rustxng --bind 127.0.0.1 --port 29483`でloopback起動し、`/healthz`と`max_results=5`のJSON検索を確認してください。
 > `max_results`やドメイン指定で出力を絞り、検索エンジンが返す要約（`content`）を利用してください（結果ページのHTML本文取得は行いません）。
 > 完了後、バイナリのバージョン、接続先、動作した検索コマンドを報告してください。失敗時は実際のエラーを報告してください。
 
@@ -19,7 +20,8 @@
 
 ## RustXNGの用途
 
-RustXNGは、SearXNGを基にRustで実装したセルフホスト型のメタ検索エンジンです。
+RustXNGは、[SearXNG](https://github.com/searxng/searxng)を基にした[sahenjp/RustXNG](https://github.com/sahenjp/RustXNG)から派生する、Rust実装のセルフホスト型メタ検索エンジンです。
+このブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>）は、HTMLスクレイピング系エンジンおよび検索結果ページのHTML取得を削除したSafeRustXNGの開発ブランチです。
 複数の非HTML検索先（API・フィード等）の結果を統合し、単一のJSON APIおよびブラウザ画面として返します（検索結果ページのHTML本文取得は行いません）。
 エージェントが必要な情報をその都度検索し、モデルへ渡す文章量を抑えるための基盤です。
 
@@ -71,13 +73,16 @@ curl --fail --get 'http://127.0.0.1:29483/search' \
 
 ## 導入
 
+> **現在のHTML取得なし実装（`feat/remove-html-fetching`ブランチ）：** 計78個のHTMLエンジン削除、検索結果ページのHTML取得削除、および非HTML `Content-Type`ガードは、SafeRustXNGの開発ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/feat/remove-html-fetching>）に実装されています。ビルド済みバイナリやコンテナイメージにこれらの変更が含まれることは確認されていないため、この構成を利用・検証する場合は本ブランチのソースからビルドしてください（[4. ソース](#4-ソース)または[2. Cargo](#2-cargo)）。ビルドされるバイナリ名は`rustxng`、バージョン表記は`0.26.0`のままです。上流`sahenjp/RustXNG`の`v0.26.0`リリースバイナリおよび`ghcr.io/sahenjp/rustxng:latest`イメージは上流のみ（履歴・参考用）であり、本ブランチの変更が含まれることは確認されていません。
+
 ### 1. リリースバイナリ
 
-[Releases](https://github.com/sahenjp/RustXNG/releases)から、環境に合うバイナリと`.sha256`を取得します。
-公開済みのv0.26.0には、Linux x86_64（GNU・musl）、macOS arm64・x86_64、Windows x86_64があります。
+> **上流のみ・履歴情報（`sahenjp/RustXNG` `v0.26.0`）：** [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases)で配布されているバイナリは上流リポジトリの成果物であり、`feat/remove-html-fetching`ブランチのHTMLエンジン削除や結果ページHTML取得削除が含まれることは**確認されていません**。現在のHTML取得なし構成を利用・検証する場合は、[4. ソース](#4-ソース)の手順でビルドしてください。
+
+上流`sahenjp/RustXNG`の公開済みv0.26.0（履歴・参考）には、Linux x86_64（GNU・musl）、macOS arm64・x86_64、Windows x86_64があります。
 選択方法とチェックサム検証は[導入ガイド](docs/AGENT-SETUP.md)を参照してください。Rustのビルド環境は不要です。
 
-GitHub CLIを使い、Linux x86_64のバイナリをユーザー用ディレクトリへ導入する例です。
+以下は上流`sahenjp/RustXNG` `v0.26.0`バイナリをGitHub CLIでユーザー用ディレクトリへ導入する履歴上の手順例です。
 
 ```bash
 set -eu
@@ -96,27 +101,28 @@ cp LICENSE NOTICE "$HOME/.local/share/rustxng/"
 
 ### 2. Cargo
 
-現在のstable RustとCのビルド環境を用意します。
+現在のstable RustとCのビルド環境を用意し、本ブランチから導入します。
 
 ```bash
-cargo install --git https://github.com/sahenjp/RustXNG.git --tag v0.26.0 --locked
+cargo install --git https://github.com/yuzolabs/SafeRustXNG.git --branch feat/remove-html-fetching --locked
 ```
 
-`rustxng`と`rustxng-index`が導入されます。
-最低対応版はRust 1.88で、CIでも検証します。このチェックアウトはRust 1.99.1でも検証しています。
+`rustxng`（バージョン表記`0.26.0`）と`rustxng-index`が導入されます。
+`Cargo.toml`で宣言されている最低対応版（MSRV）はRust 1.88（CIワークフローにRust 1.88.0ジョブを定義）で、このブランチのローカル検証はRust 1.98.0（`rustc 1.98.0 (88d9e12ae 2026-08-18)`）で実施しています。
+（`--git https://github.com/sahenjp/RustXNG.git --tag v0.26.0`は上流の履歴タグであり、本ブランチのHTML取得削除が含まれることは確認されていません。）
 
 ### 3. Docker
 
-リポジトリからイメージをビルドします。
+本ブランチからローカルでイメージをビルドします。
 
 ```bash
-git clone https://github.com/sahenjp/RustXNG.git
-cd RustXNG
+git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+cd SafeRustXNG
 docker build -t rustxng .
 docker run --rm -p 127.0.0.1:29483:29483 rustxng
 ```
 
-配布イメージ（既定ポートが8888の旧版を含む）では、起動引数も明示します。
+上流`sahenjp/RustXNG`の配布イメージ（上流のみ・履歴情報。本ブランチのHTML取得削除が含まれることは確認されていません。既定ポートが8888の旧版を含む）では、起動引数も明示します。
 
 ```bash
 docker run --rm -p 127.0.0.1:29483:29483 -e SEARXNG_PORT=29483 ghcr.io/sahenjp/rustxng:latest --bind 0.0.0.0 --port 29483
@@ -125,23 +131,25 @@ docker run --rm -p 127.0.0.1:29483:29483 -e SEARXNG_PORT=29483 ghcr.io/sahenjp/r
 外部公開が必要な場合は公開先IPを明示し、認証・アクセス制御も構成してください。
 設定を渡す場合は、[settings.toml](settings.toml)全体をコピーして、イメージ名の前に
 `-v "$PWD/settings.toml:/app/settings.toml:ro"`を追加します。起動引数を変更するときは
-`--bind 0.0.0.0`と`--port 29483`の両方を指定してください。配布イメージは現在Linux amd64向けです。
-他のCPUではローカルビルドか、対応するネイティブバイナリを使用してください。
+`--bind 0.0.0.0`と`--port 29483`の両方を指定してください。上流の配布イメージはLinux amd64向けです。
+他のCPUや本ブランチのHTML取得なし構成では、ソースからローカルビルドしてください。
 
 ### 4. ソース
 
+現在のHTML取得なしブランチをソースから直接ビルドして起動します。
+
 ```bash
-git clone https://github.com/sahenjp/RustXNG.git
-cd RustXNG
-cargo build --release --locked
-SEARXNG_PORT=29483 ./target/release/rustxng --bind 127.0.0.1 --port 29483
+git clone --branch feat/remove-html-fetching --single-branch https://github.com/yuzolabs/SafeRustXNG.git
+cd SafeRustXNG
+cargo build --release --locked --bin rustxng
+./target/release/rustxng --bind 127.0.0.1 --port 29483
 ```
 
-Rust 1.88以降（推奨は現在のstable）を利用してください。
+生成されるバイナリは`target/release/rustxng`（バージョン表記`0.26.0`）です。Rust 1.88以降（推奨は現在のstable）を利用してください。
 
 ## 設定と運用
 
-このチェックアウトの既定値は`127.0.0.1:29483`です。配布済みv0.26.0の既定値は8888のままですが、
+このチェックアウトの既定値は`127.0.0.1:29483`です。上流`sahenjp/RustXNG`の配布済みv0.26.0バイナリ（上流のみ・履歴情報）の既定値は8888のままですが、
 上記の`--port 29483`を明示したコマンドは両方で使えます。
 rdshを含む移行方法は[ポート移行ガイド](docs/PORT-MIGRATION.md)を参照してください。
 
@@ -168,7 +176,7 @@ rustxng --config /path/to/settings.toml
 
 ## 検索性能の実測
 
-> **履歴スナップショット：** 以下のSealQA測定および[BENCHMARK.md](docs/BENCHMARK.md)の数値は、汎用XPathを含む計78個のHTML取得エンジンおよび結果ページHTML取得を削除する前の記録です。エンジン削除後の検索品質や他サービスとの比較可能性は再測定していません。
+> **履歴スナップショット：** 以下のSealQA測定および[BENCHMARK.md](docs/BENCHMARK.md)の数値は、汎用XPathを含む計78個のHTML取得エンジンおよび結果ページHTML取得を削除する前の記録です。エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、これらの履歴数値を現在の性能保証として扱うことはできません。
 
 2026-11-02（コミット`fef998b`時点）に、当時の既定設定・上位10件・LLMなし・ローカルインデックスなしでSealQAを測定しました。
 
