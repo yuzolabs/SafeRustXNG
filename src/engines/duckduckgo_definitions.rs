@@ -157,28 +157,14 @@ fn array<'a>(json: &'a serde_json::Value, path: &str) -> &'a [serde_json::Value]
     values.map(Vec::as_slice).unwrap_or_default()
 }
 
-/// The first anchor of a related topic, upstream's result_to_text.
-fn result_to_text(raw: &str, snippet: &str) -> Option<String> {
-    let document = parse_html(snippet);
-    let anchor = select_elements(&document, "a")
-        .ok()
-        .and_then(|links| links.first().copied());
-    let value = match anchor {
-        Some(anchor) => text(anchor),
-        None => clean(raw),
-    };
-    let broken = value.starts_with("http") && value.contains(' ');
-    (!value.is_empty() && !broken).then_some(value)
-}
-
 /// One related topic entry as a suggestion, unless it is broken or the heading.
 fn suggestion(heading: &str, entry: &serde_json::Value) -> Option<EngineItem> {
     let text = json_str(entry, "Text");
     if text.starts_with("http") && text.contains(' ') {
         return None;
     }
-    let value = result_to_text(&text, &json_str(entry, "Result"))?;
-    (value != heading).then_some(EngineItem::Suggestion(value))
+    let value = clean(&text);
+    (!value.is_empty() && value != heading).then_some(EngineItem::Suggestion(value))
 }
 
 #[cfg(test)]

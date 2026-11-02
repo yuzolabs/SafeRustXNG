@@ -1,5 +1,7 @@
 # ベンチマーク
 
+> **履歴スナップショット：** この文書の測定値・設定例は、人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジンを含む）、および検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`、`raw_content_limit`）・HTML クローラー（`rustxng-index crawl`）を削除する前の記録です。現在の実装ではこれらは利用できず、エンジン削除後の検索品質や他サービスとの比較可能性は再測定していません。
+
 RustXNG と上流 SearXNG（Python）を同じマシンで並べて測った結果です。
 
 ## 方法

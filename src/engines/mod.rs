@@ -1,29 +1,6 @@
-//! Engine implementations, one module per upstream `searx/engines/*.py`.
+//! Non-HTML engine implementations, one module per upstream engine.
 //!
-//! | module                | upstream                    |
-//! |-----------------------|-----------------------------|
-//! | `arxiv`               | `arxiv.py`                   |
-//! | `bing`                | `bing.py`                    |
-//! | `brave`               | `brave.py`                   |
-//! | `crates`              | `crates.py`                  |
-//! | `crossref`            | `crossref.py`                |
-//! | `docker_hub`          | `docker_hub.py`              |
-//! | `duckduckgo`          | `duckduckgo.py`              |
-//! | `github`              | `github.py`                  |
-//! | `google`              | `google.py`                  |
-//! | `hackernews`          | `hackernews.py`              |
-//! | `mojeek`              | `mojeek.py`                  |
-//! | `mwmbl`               | `mwmbl.py`                   |
-//! | `npm`                 | `npm.py`                     |
-//! | `openlibrary`         | `openlibrary.py`             |
-//! | `openstreetmap`       | `openstreetmap.py`           |
-//! | `photon`              | `photon.py`                  |
-//! | `pypi`                | `pypi.py`                    |
-//! | `semantic_scholar`    | `semantic_scholar.py`        |
-//! | `stackexchange`       | `stackexchange.py`           |
-//! | `wikidata`            | `wikidata.py`                |
-//! | `wikipedia`           | `wikipedia.py`               |
-//! | `youtube_noapi`       | `youtube_noapi.py`           |
+//! Human-facing HTML scrapers and the generic XPath engine are not registered.
 
 pub mod andisearch;
 pub mod apple_app_store;

@@ -1,12 +1,14 @@
 # RustXNG — AI エージェントに使わせる統合検索エンジン
 
-> 検索 API を 1 本に。169 のサイトを、1 ms で、自分のサーバーから。
+> 検索 API を 1 本に。複数の検索先を、1 ms で、自分のサーバーから。
+>
+> **現在の構成に関する注意：** 人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および Google・Bing・DuckDuckGo・Brave の HTML 検索などを含む）と、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`）・HTML クローラー（`rustxng-index crawl`）は削除されています。現在は非 HTML レスポンス（JSON API・Atom/RSS フィード・DB 等）を扱うエンジンのみを残しています（公式 API 限定や利用規約への適合を保証するものではありません）。下表のレイテンシ等の数値は HTML エンジン削除前の履歴スナップショットであり、エンジン削除後の検索品質や比較可能性は再測定していません。
 
 ## これは何か
 
 **RustXNG は、AI エージェントに検索させるためのセルフホスト型メタ検索エンジンです。**
 
-Google・Bing・DuckDuckGo・Wikipedia・GitHub・arXiv・PubMed・YouTube など **169 のサイト**を 1 つの JSON API にまとめ、Rust の単一バイナリで動きます。Python もデータベースも API キーも要りません。
+Wikipedia・GitHub・arXiv・PubMed・crates.io・Google News（RSS）・Bing News（RSS）など、非 HTML の API・フィードを検索するエンジン群（`settings.toml` に 183 エントリ、既定有効 98）を 1 つの JSON API にまとめ、Rust の単一バイナリで動きます。Python もデータベースも必須の API キーも要りません。
 
 SearXNG の API・検索構文・設定形式をそのまま引き継いでいるので、既存の SearXNG 前提のツールやプロンプトはそのまま動きます。
 
@@ -19,7 +21,7 @@ SearXNG の API・検索構文・設定形式をそのまま引き継いでい�
 | 起動 | 0.03 秒 |
 | 常駐メモリ | 13 MiB |
 | 単一サイト検索（ウォーム） | **1 ms** |
-| 全 169 サイト検索（ウォーム中央値） | **276 ms** |
+| 全サイト検索（HTML エンジン削除前のウォーム中央値・履歴） | **276 ms** |
 
 エージェントは 1 ターンで何度も検索します。1 回 1 秒の API を 5 回呼ぶとそれだけで 5 秒。RustXNG はキャッシュヒット時 1 ms 台なので、ツール呼び出しの待ち時間がほぼ消えます。
 
@@ -35,13 +37,13 @@ SearXNG の API・検索構文・設定形式をそのまま引き継いでい�
       "url": "https://tokio.rs/",
       "title": "Tokio — an asynchronous Rust runtime",
       "content": "Tokio is an event-driven, non-blocking I/O platform...",
-      "engine": "duckduckgo",
-      "engines": ["duckduckgo", "brave"],
+      "engine": "github",
+      "engines": ["github", "mwmbl"],
       "score": 1.0,
       "category": "general"
     }
   ],
-  "unresponsive_engines": [["bing", "Timeout"]]
+  "unresponsive_engines": [["wikidata", "Timeout"]]
 }
 ```
 
@@ -101,7 +103,7 @@ query_str = "SELECT title, body FROM docs WHERE body LIKE '%' || $1 || '%'"
       "categories": { "type": "string", "description": "general / news / science / it / files など" },
       "max_results": { "type": "integer", "description": "返す最大件数。トークンを抑えたいときは 5 を指定" },
       "include_domains": { "type": "string", "description": "このドメインだけに絞る（カンマ区切り）" },
-      "include_raw_content": { "type": "boolean", "description": "上位 5 件のページ本文も返す" },
+      "exclude_domains": { "type": "string", "description": "このドメインを除外する（カンマ区切り）" },
       "pageno": { "type": "integer", "minimum": 1 }
     },
     "required": ["query"]
@@ -121,10 +123,9 @@ curl 'http://127.0.0.1:29483/search?q=rust&format=json'
 
 # max_results: 上位 5 件だけ（例: 4.6 KB / -92%）
 curl 'http://127.0.0.1:29483/search?q=rust&format=json&max_results=5'
-
-# include_raw_content: 上位 5 件のページ本文付き（+16 KB / +3.5 秒）
-curl 'http://127.0.0.1:29483/search?q=rust&format=json&max_results=5&include_raw_content=1'
 ```
+
+検索結果ページの HTML 本文取得（旧 `include_raw_content` / `raw_content`）は削除されており、API・フィードが返す要約（`content`）のみを返します。
 
 ## 使い始める
 
@@ -145,6 +146,6 @@ docker build -t rustxng . && docker run --rm -p 127.0.0.1:29483:29483 rustxng
 ## 補足
 
 - **ライセンス**: AGPL-3.0-or-later（SearXNG と同じ）。帰属は NOTICE に記載
-- **互換性**: エンジン 226 型 / 設定エントリ 352 をすべて移植済み。差分は [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)
+- **互換性**: SearXNG 互換の HTTP API・検索構文・設定形式。汎用 `xpath` を含む計 78 個の HTML 取得エンジンは削除済みで、現在は非 HTML エンジン（165 モジュール / `settings.toml` 183 エントリ）のみです。詳細は [docs/COMPATIBILITY.md](COMPATIBILITY.md) と [docs/COVERAGE.md](COVERAGE.md)
 - **バイナリサイズ**: 17 MB（DB エンジンを外した場合）/ 27 MB（全部入り）
 - **向いていない用途**: 画面デザインは独自なので、SearXNG のテーマをそのまま使いたい場合は不向きです

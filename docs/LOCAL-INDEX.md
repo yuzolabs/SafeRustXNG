@@ -1,43 +1,37 @@
 # 自前インデックス（ローカル BM25）
 
-> **実験機能です。既定では無効です。** `local_index_path` を設定したときだけ動きます。
-> クロールとインデックスの管理が必要になるため、通常の利用では不要です。
+> **実験機能です。既定では無効です。** `local_index_path` を設定したときだけ既存のローカル Tantivy インデックスを開きます。
+> **HTML クローラー機能は削除されました。** `rustxng-index` は既存インデックスに対する `search` と `stats` のみを受け付け、`crawl` サブコマンドおよびクローラー用オプション（`--seeds` / `--out` / `--sitemaps` / `--max-pages` / `--max-depth` / `--workers` / `--delay-ms`）はインデックスやネットワークへアクセスする前に拒否されます。
 
-RustXNG は上流エンジンに依存しない**自前の全文検索インデックス**を持てます。ローカルのヒットを上流の結果に足すことで、上流が取りこぼすページを補い**精度が上がります**。
-RustXNG は上流エンジンに依存しない**自前の全文検索インデックス**を持てます。ローカルのヒットを上流の結果に足すことで、上流が取りこぼすページを補い**精度が上がります**。
+RustXNG は既存の**ローカル全文検索インデックス（Tantivy BM25）**を読み取り専用で開き、ローカルのヒットを上流エンジンの結果に併合できます。
 
 ## 構成
 
 ```text
-rustxng-index crawl   →  Tantivy インデックス（BM25）
-                            ↓
-rustxng（--port 29483）  →  ローカルのヒットを上流の結果に併合
-                            ↓
-                        175 の上流エンジン
+既存の Tantivy インデックス（BM25）
+                ↓
+rustxng-index <search|stats>（ローカル検索・件数確認、通信なし）
+rustxng（--port 29483）       →  ローカルのヒットを上流エンジンの結果に併合
 ```
 
 - **転置インデックス**: Tantivy（Rust 製、BM25 でスコアリング）
 - **二重トークナイズ**: 空白区切り言語は既定トークナイザ、日本語・中国語は**文字バイグラム**（分かち書きが無いため）
-- **礼儀**: robots.txt の `Disallow` を尊重、同一ホストのみ辿る、ホストごとに間隔を空ける、200 ページごとにコミット
-- **読み書き分離**: クロール中でも検索側は読み取り専用で開ける
+- **ネットワーク非依存**: `rustxng-index` は既存のローカルインデックスの検索（`search`）と統計表示（`stats`）のみを行い、外部へ HTTP リクエストを送りません
 
 ## 使い方
 
 ```bash
-# 1. シードを用意（1 行 1 URL）
-https://doc.rust-lang.org/book/
-https://docs.python.org/3/library/
-
-# 2. クロール（robots.txt を尊重、8 ワーカー）
-rustxng-index crawl --seeds seeds.txt --out ./index-data --max-pages 5000 --max-depth 3 --workers 8
-
-# 3. 確認
+# 1. 既存インデックスの件数確認
 rustxng-index stats --index ./index-data
-rustxng-index search --index ./index-data "python dict get" --limit 5
 
-# 4. 下記のlocal_index_pathを設定した構成ファイルを指定して起動
-rustxng
+# 2. 既存インデックスのローカル検索
+rustxng-index search --index ./index-data "tokio runtime" --limit 5
+
+# 3. 下記の local_index_path を設定した構成ファイルを指定して起動
+rustxng --config /path/to/settings.toml
 ```
+
+`rustxng-index crawl` などの HTML クロール機能はサポートされていません（実行すると `usage: rustxng-index <search|stats> [--index PATH] [--limit N] [QUERY]; HTML crawling is not supported` で終了コード 2 を返します）。
 
 ## 設定
 
@@ -47,9 +41,11 @@ local_index_path = "index-data"   # 既定は空（無効）。設定すると�
 local_index_merge = true          # false にするとインデックスを保持したまま順位から外す
 ```
 
-**既定では無効です。** 上の local_index_path を設定したときだけ併用が始まります。
+**既定では無効です。** 上の `local_index_path` を設定したときだけ併用が始まります。
 
-## 実測（100 問）
+## 過去の実測（100 問・履歴スナップショット）
+
+> **履歴スナップショット：** 以下の実測値・クロール記録・制約は、汎用 `xpath` を含む計 78 個の HTML 取得エンジンおよび HTML クローラーを削除する前の記録です。エンジン削除後の検索品質や比較可能性は再測定していません。
 
 | 構成 | hit@1 | hit@5 | MRR | レイテンシ |
 | --- | ---: | ---: | ---: | ---: |

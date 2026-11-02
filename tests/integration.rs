@@ -104,6 +104,58 @@ async fn json_search_returns_merged_results() {
 }
 
 #[tokio::test]
+async fn search_and_research_never_fetch_result_pages() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let page_requests = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&page_requests);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let payload = serde_json::json!([{
+        "url": format!("http://{address}/document"),
+        "title": [{"value": "Rust reference"}],
+        "extract": [{"value": "API-provided snippet only."}]
+    }]);
+    let upstream = Router::new()
+        .route(
+            "/api/v1/search/",
+            get(move || {
+                let payload = payload.clone();
+                async move { axum::Json(payload) }
+            }),
+        )
+        .route(
+            "/document",
+            get(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+                async { axum::response::Html("<html><body>Must not be fetched</body></html>") }
+            }),
+        );
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let app = app(settings_for(&format!("http://{address}/api/v1")));
+
+    for uri in [
+        "/search?q=rust&format=json&include_raw_content=1",
+        "/search?q=rust&format=json&full=1&include_raw_content=true",
+    ] {
+        let (status, body, _) = get_uri(&app, uri).await;
+        assert_eq!(status, StatusCode::OK);
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(json["results"][0]["content"], "API-provided snippet only.");
+        assert!(json["results"][0].get("raw_content").is_none());
+    }
+    let (status, body, _) = get_uri(&app, "/research?q=rust").await;
+    assert_eq!(status, StatusCode::OK);
+    let report: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(
+        report["sources"][0]["content"],
+        "API-provided snippet only."
+    );
+    assert_eq!(page_requests.load(Ordering::SeqCst), 0);
+    server.abort();
+}
+
+#[tokio::test]
 async fn agent_facing_filters_limit_and_scope_the_results() {
     let base_url = start_fake_engine().await;
     let app = app(settings_for(&base_url));

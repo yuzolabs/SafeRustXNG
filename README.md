@@ -9,7 +9,7 @@ Copy this instruction into an agent that can run commands, or send it this READM
 > download a matching release binary, verify its SHA-256 checksum, and install it in a user-owned directory.
 > Follow [the agent setup guide](https://github.com/sahenjp/RustXNG/blob/main/docs/AGENT-SETUP.md).
 > Start it on loopback, check `/healthz`, then verify a JSON search with `max_results=5`.
-> Keep the first response short; request page text only when evidence is needed.
+> Keep responses small with `max_results` and domain filters; RustXNG returns engine snippets and does not fetch result pages.
 > Report the binary version, endpoint, and one working search command. If setup fails, report the actual error.
 
 [日本語](README.ja.md) · [Agent setup guide](docs/AGENT-SETUP.md)
@@ -20,10 +20,11 @@ Copy this instruction into an agent that can run commands, or send it this READM
 ## Why RustXNG
 
 RustXNG is a self-hosted metasearch engine written in Rust, based on SearXNG.
-It combines results from multiple sources and can fetch page text for grounding.
-An agent can retrieve information as it needs it and keep the amount of text sent to its model small.
+It combines results from multiple non-HTML API and feed sources into one JSON API and browser UI without fetching result web pages.
+An agent can retrieve search snippets as it needs them and keep the amount of text sent to its model small.
 
 Many engines work without API keys. Optional authenticated providers have their own credentials and billing.
+78 HTML-scraping engines (including the generic XPath engine) have been removed; the remaining non-HTML and JSON/feed engines are not a certification of official-API-only use or Terms-of-Service compliance.
 The server runs locally; **search terms are sent to the upstream engines selected for a request**.
 
 ## Search from an agent
@@ -59,12 +60,11 @@ Use these existing parameters to narrow the response:
 | `max_results=5` | Return at most five ranked results; supported range: 1–200 |
 | `include_domains=docs.rs` | Keep results from this domain and its subdomains |
 | `exclude_domains=example.com` | Exclude results from this domain and its subdomains |
-| `include_raw_content=1` | Fetch page text into `raw_content` for the top results |
 | `engines=wikipedia` | Select a registered engine |
 | `time_range=day` | Request recent results from engines supporting this filter |
 
-Page text is optional. With default settings it is fetched for up to five results,
-with a limit of 8,000 characters per page; individual fetches can fail.
+Search responses include the `title`, `url`, and `content` snippet supplied by each engine (with HTML markup stripped from API/feed snippets).
+Result-page HTML fetching (`include_raw_content` and `raw_content`) has been removed; legacy query parameters are ignored and never trigger network fetches to result URLs.
 Character limits are not token limits. Strict token budgets and server-side field selection are planned.
 
 The browser UI is at <http://127.0.0.1:29483/>. JSON, CSV, RSS, and HTML outputs are available.
@@ -161,15 +161,17 @@ Partial configuration merging has a known issue that can reset unspecified value
 - Per-engine timeouts, suspension, and empty-result rest handle unavailable sources.
 - `RUSTXNG_IDLE_TIMEOUT=300`: exit after five minutes without requests.
 - Optional Valkey/Redis cache and database-backed engines support additional deployments.
-- The experimental `rustxng-index` local index is disabled by default.
+- The experimental `rustxng-index` local index is disabled by default and only supports `search` and `stats` on an existing index (HTML crawling is not supported).
 
 The [2026-11-02 audit](docs/AUDIT-2026-11-02.md) records open issues including SSRF validation,
 unsafe result URL schemes, response-size limits, and cache isolation. Use loopback for local agent setup;
-review these findings before exposing the service or enabling untrusted page fetching.
+review these findings before exposing the service beyond loopback.
 
 ## Measured search performance
 
-A retrieval-only SealQA run on 2026-11-02 used default settings, ten results per question,
+> **Historical snapshot:** The SealQA run below and earlier benchmarks in [BENCHMARK.md](docs/BENCHMARK.md) were recorded before 78 HTML-scraping engines (including generic XPath) and result-page HTML fetching were removed. Search quality comparability has not been remeasured after engine removal.
+
+A retrieval-only SealQA run on 2026-11-02 (commit `fef998b`) used default settings at that time, ten results per question,
 no LLM, and no local index:
 
 | Dataset | Questions | Reference page @1 | @5 | @10 | Median response |
@@ -200,7 +202,7 @@ use `max_results`, domain filters, and client-side projection today.
 | [Benchmarks](docs/BENCHMARK.md) | Earlier performance and quality measurements |
 | [Compatibility](docs/COMPATIBILITY.md) | SearXNG compatibility and differences |
 | [Coverage](docs/COVERAGE.md) | Engine coverage |
-| [Local index](docs/LOCAL-INDEX.md) | Optional crawl and BM25 index |
+| [Local index](docs/LOCAL-INDEX.md) | Optional existing local BM25 index (`search` / `stats`; no HTML crawler) |
 | [rdsh](docs/RDSH.md) | Integration with rdsh |
 | [Audit](docs/AUDIT-2026-11-02.md) | Findings, reproduction logs, and priorities |
 | [Security](SECURITY.md) | Reporting vulnerabilities and dependency advisories |

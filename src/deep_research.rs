@@ -1,14 +1,7 @@
-//! Deep research: plan sub-queries, search and fetch, then synthesise a
-//! cited report.
+//! Deep research plans sub-queries and synthesises API/feed search results.
 //!
-//! The flow mirrors the "deep research" agent pattern from the literature
-//! (plan -> search -> fetch -> synthesise). RustXNG already owns the search
-//! and fetch halves; this module adds the orchestration plus an optional LLM
-//! for query planning and report synthesis.
-//!
-//! Without an LLM configured the endpoint still works: it runs a thorough
-//! search, fetches the top pages and returns a structured evidence bundle the
-//! caller (an agent) can synthesise itself.
+//! Source URLs are never fetched. Without an LLM, research returns a structured
+//! evidence bundle containing only the content supplied by search engines.
 
 use std::time::{Duration, Instant};
 
@@ -222,7 +215,6 @@ impl Searcher {
             let parsed = Query::parse(query, &self.registry, &[]);
             let request = SearchRequest {
                 max_results: Some(5),
-                include_raw_content: true,
                 ..SearchRequest::new(parsed)
             };
             let response = self.search(request).await;
@@ -230,7 +222,7 @@ impl Searcher {
                 sources.push(ResearchSource {
                     url: result.url.clone(),
                     title: result.title.clone(),
-                    content: result.raw_content.clone().unwrap_or(result.content.clone()),
+                    content: result.content.clone(),
                     query: query.clone(),
                 });
             }

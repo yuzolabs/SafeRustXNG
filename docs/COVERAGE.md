@@ -1,6 +1,6 @@
 # エンジン移植の状況（カバレッジ）
 
-現在は、人向け HTML ページを取得・解析する検索エンジンを削除しています。HTML 内の埋め込み JSON を抽出する実装も対象です。汎用 `xpath` エンジンは XML 用も含めて削除しましたが、arXiv・RSS・API など非 HTML レスポンスを扱うエンジンは残しています。公式 API のみの構成や、利用規約への適合を保証するものではありません。この変更では、検索結果の本文取得・クローラーはまだ削除していません。
+現在は、人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン［XML 用を含む］、および HTML 内の埋め込み JSON を抽出する実装を含む）を削除しています。あわせて、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`、`src/content.rs`）、エンジン向け HTML/XPath パーサ（`src/engine/xpath.rs` / `src/engine/xml.rs`、`scraper` 依存）、および `rustxng-index crawl` の HTML クローラーも削除しました（`rustxng-index` は既存ローカルインデックスの `search` と `stats` のみに対応し、Web の HTML UI 出力と API・フィード要約のタグ/エンティティ除去は引き続き提供します）。arXiv・RSS・API など非 HTML レスポンスを扱うエンジンは残していますが、公式 API のみの構成や利用規約への適合を保証するものではありません。また、エンジン削除後の検索品質の比較可能性は再測定していません。
 
 現在の登録は `src/engines/mod.rs`、同梱設定は `settings.toml` を参照してください。以下の数値は削除前の記録であり、現在の対応数やテスト数ではありません。上流との比較は `tools/coverage.py` で再計測できます。
 

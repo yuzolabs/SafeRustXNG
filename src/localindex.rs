@@ -1,10 +1,10 @@
-//! Local full-text index (BM25) built from our own crawl.
+//! Local full-text index (BM25) for previously stored documents; no web crawler.
 //!
 //! This is the piece that makes RustXNG independent of upstream engines: a
 //! query answered from here costs milliseconds instead of a fan-out.
 //!
-//! Two tokenisations are indexed for every page, because the crawler cannot
-//! assume a language: the default tokenizer for space-separated text, and
+//! Two tokenisations are indexed for every document without assuming a
+//! language: the default tokenizer for space-separated text, and
 //! character bigrams for Japanese/Chinese, which have no word delimiters.
 
 use std::path::Path;
@@ -86,7 +86,7 @@ pub fn has_cjk(text: &str) -> bool {
 
 impl LocalIndex {
     /// Open the index for reading. Safe to call from any number of processes,
-    /// including while a crawl is writing.
+    /// including while another process writes documents.
     pub fn open(path: &Path) -> Result<Self, String> {
         Self::open_inner(path, false)
     }
@@ -163,8 +163,7 @@ impl LocalIndex {
     }
 
     /// Whether this URL is already indexed (committed documents only).
-    /// Lets a later crawl continue where the previous one stopped instead of
-    /// indexing the same pages twice.
+    /// Allows document importers to avoid indexing the same URL twice.
     pub fn has_url(&self, url: &str) -> bool {
         let searcher = self.reader.searcher();
         let query = TermQuery::new(

@@ -18,7 +18,7 @@
 | `src/results.rs` | `searx/results.py`, `searx/result_types/` |
 | `src/engine/mod.rs` | `searx/engines/__init__.py` |
 | `src/engine/state.rs` | `searx/engines/__init__.py` の suspend / error 処理 |
-| `src/engine/util.rs` | `searx/utils.py`, 旧 `searx/engines/xpath.py` 相当の補助（汎用 XPath エンジン自体は削除済み） |
+| `src/engine/util.rs` | `searx/utils.py` 相当の補助（API・フィード要約のタグ/エンティティ除去、RSS 解析、URL 展開。`src/engine/xpath.rs` と `src/engine/xml.rs` は削除済み） |
 | `src/engines/*.rs` | `searx/engines/*.py` |
 | `src/network.rs` | `searx/network/` |
 | `src/cache.rs` | `searx/cache.py` |
@@ -78,7 +78,7 @@
 
 ## エンジン対応
 
-人向け HTML ページを取得・解析するエンジンは、HTML 内の埋め込み JSON を使うものも含めて削除しました。以下は残っているエンジンの例です。登録の全体は `src/engines/mod.rs`、同梱設定は `settings.toml` を参照してください。非 HTML レスポンスを扱う構成であり、公式 API 限定や利用規約への適合を保証するものではありません。検索結果の本文取得・クローラーは、この変更ではまだ削除していません。
+人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および HTML 内の埋め込み JSON を使うものを含む）は削除しました。あわせて、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`、`src/content.rs`）、エンジン向け HTML/XPath パーサ（`src/engine/xpath.rs` / `src/engine/xml.rs`、`scraper` 依存）、および `rustxng-index crawl` の HTML クローラーも削除済みです（`rustxng-index` は既存インデックスの `search` / `stats` のみ対応し、`/research` は API・フィードの `result.content` のみを使用します。Web の HTML UI と API・フィード要約のマークアップ除去は維持しています）。以下は残っているエンジンの例です。登録の全体は `src/engines/mod.rs`、同梱設定は `settings.toml` を参照してください。非 HTML レスポンスを扱う構成であり、公式 API 限定や利用規約への適合を保証するものではありません。また、エンジン削除後の検索品質の比較可能性は再測定していません。
 
 | エンジン | 上流 | 逸脱・補足 |
 | --- | --- | --- |
@@ -92,7 +92,7 @@
 | github | `github.py` | `api.github.com`。`api_key` があれば Authorization を付与 |
 | stackexchange | `stackexchange.py` | `api_site` でサイトを選択（既定 stackoverflow） |
 | crates.io | `crates.py` | `/api/v1/crates` |
-| npm | `npm.py` | 上流は npms.io。本実装は npm レジストリの検索 API（維持されている方）。索引が違うため結果セットは一致しない（[docs/BENCHMARK.md](BENCHMARK.md) 参照） |
+| npm | `npm.py` | 上流と同じく `https://api.npms.io/v2/search`（`size=25`、`from` オフセット）を使用（`src/engines/npm.rs` 冒頭コメントの npm レジストリ表記は旧記述） |
 | docker hub | `docker_hub.py` | `/api/search/v3/catalog/search` |
 | arxiv | `arxiv.py` | Atom XML を quick-xml で解析。時間範囲指定時は `sortBy=submittedDate`（日付フィルタではなく並び順） |
 | 時間範囲の扱い | — | `time_range` 指定時: crossref=`from-pub-date` + 新しい順、github=`sort=updated` + `pushed:>日付`、stackexchange=`sort=creation` + `fromdate`、hackernews=`numericFilters` |

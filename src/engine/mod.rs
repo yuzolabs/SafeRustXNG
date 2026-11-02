@@ -6,8 +6,6 @@
 
 pub mod state;
 pub mod util;
-pub mod xml;
-pub mod xpath;
 
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
@@ -15,7 +13,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use scraper::Html;
 use serde::{Deserialize, Serialize};
 
 use crate::query::Query;
@@ -122,10 +119,6 @@ impl EngineResponse {
     pub fn json(&self) -> Result<serde_json::Value, EngineError> {
         serde_json::from_slice(&self.body)
             .map_err(|error| EngineError::Parse(format!("invalid JSON response: {error}")))
-    }
-
-    pub fn html(&self) -> Result<Html, EngineError> {
-        Ok(Html::parse_document(&self.text()))
     }
 
     pub fn header(&self, name: &str) -> Option<&str> {

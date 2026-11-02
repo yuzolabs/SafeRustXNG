@@ -1,6 +1,6 @@
 # SearXNG 互換性の範囲
 
-**結論: エンジン（352 エントリ / 226 型）とプロトコル（HTTP API・設定・データ形式）は上流と一致しています。** 残る差分は UI のマークアップと i18n のロケール数（57 / 60）です。このページは「何が互換で、何が違うか」を検証可能な形でまとめたものです。
+**結論: プロトコル（HTTP API・検索構文・設定・データ形式）は上流と一致しています。** 一方、人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジンを含む）、および検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`）・HTML クローラー（`rustxng-index crawl`）は削除されています。残っている非 HTML（JSON API・Atom/RSS フィード・DB 等）エンジンは公式 API 限定や利用規約への適合を保証するものではなく、エンジン削除後の検索品質の比較可能性は再測定していません。残る主な差分はエンジン対象範囲、UI のマークアップ、i18n のロケール数（57 / 60）です。このページは「何が互換で、何が違うか」を検証可能な形でまとめたものです。
 
 ## 互換と言える範囲
 
@@ -36,22 +36,23 @@ SearXNG のパラメータと衝突しない名前で、LLM のツール呼び�
 | `max_results=N` | 並べ替え後の上位 N 件だけを返す（1〜200 に丸める） | `results` を切り詰め |
 | `include_domains=a.com,b.com` | URL のホストが指定ドメイン（サブドメイン含む）の結果だけを残す | 絞り込み |
 | `exclude_domains=a.com` | 指定ドメインの結果を落とす | 絞り込み |
-| `include_raw_content=1` | 上位 `search.raw_content_limit` 件（既定 5）のページ本文を取得して `raw_content` フィールドに入れる | 約 4,000 文字/件を追加。ページはキャッシュされ 2 回目以降は即返し |
 | `strategy=staged` | エンジンを少数の段に分けて開始し、`search.staged_min_results` 件で打ち切る（既定は並列） | 応答時間は短縮、返る件数は減る |
 
-**ランキングの差分（`search.relevance_weight`）**: 一般（マルチエンジン）検索では、URL + タイトルのクエリ語一致度でスコアを補正します（既定 4.0。Exa の意味検索に肉薄させるため）。**単一エンジン指定では補正せず上流順を維持**するので、`engines=` での overlap@10 は上流と一致します。`relevance_weight = 0` にすれば一般検索も上流と完全に同一の順序になります。
+検索結果ページの HTML 本文取得（旧 `include_raw_content` パラメータおよび `SearchResult.raw_content` フィールド、`search.raw_content_limit` / `search.raw_content_chars` 設定）は削除されました。旧クエリパラメータが指定された場合も無視され、結果 URL への通信は行いません。
+
+**ランキングの差分（`search.relevance_weight`）**: 一般（マルチエンジン）検索では、URL + タイトル + スニペット（`content`）のクエリ語一致度でスコアを補正します（既定 4.0）。**単一エンジン指定では補正せず上流順を維持**するので、`engines=` での overlap@10 は上流と一致します。`relevance_weight = 0` にすれば一般検索も上流と完全に同一の順序になります。
 
 応答自体の検証も行います。パースは通るが内容が明らかに架空・プレースホルダ・クエリと無関係な応答（上流 issue #6358 の「静かなゴミ混入」）は、結果に混ぜずにエンジンをサスペンドし、`unresponsive_engines` に `Suspicious response` として出します。
 
 ### ディープリサーチ（`GET /research`、上流にない）
 
-質問を受け取り、(1) サブクエリを計画（LLM があれば LLM、無ければ質問から派生）、(2) 各クエリを検索して上位ページの本文を取得、(3) LLM があれば引用付き markdown レポートを生成して返します。LLM 未設定でも証拠バンドル（`queries` / `sources` / 本文）は返ります。設定は `settings.toml` の `[research]`（`enabled` / `base_url` / `api_key` / `model` / `max_queries` / `max_sources`）。
+質問を受け取り、(1) サブクエリを計画（LLM があれば LLM、無ければ質問から派生）、(2) 各サブクエリを検索してエンジン（API・フィード）が返した `content`（要約）を収集・URL 重複排除（結果先 URL の HTML ページ取得は一切行いません）、(3) LLM があれば引用付き markdown レポートを生成して返します。LLM 未設定でも証拠バンドル（`queries` / `sources`）は返ります。設定は `settings.toml` の `[research]`（`enabled` / `base_url` / `api_key` / `model` / `max_queries` / `max_sources`）。
 
 ## 互換でない領域
 
 | 領域 | 差分 |
 | :--- | :--- |
-| **エンジンの網羅率** | **上流 352 エントリ / 226 型をすべて実装済み（100%）**。既定で有効なのは約 170（認証情報・自前インスタンスが必要なものは上流と同じく無効）。内訳は [COVERAGE.md](COVERAGE.md) |
+| **エンジンの網羅率** | 当初は上流 352 エントリ / 226 型を移植しましたが、その後汎用 `xpath` を含む計 78 個の HTML 取得エンジンを削除しました。現在は非 HTML レスポンスを扱う 165 モジュール / `settings.toml` 183 エントリ（既定有効 98）です。内訳は [COVERAGE.md](COVERAGE.md) |
 | **UI** | 単一テーマ（simple 相当）のみ。上流のテンプレート・テーマ資産とマークアップは非互換 |
 | **i18n** | 57 ロケール（上流は 60） |
 | **`/stats`** | 表示形式が上流と異なる（HTML の内容・`/stats/errors` の形） |
@@ -62,20 +63,20 @@ SearXNG のパラメータと衝突しない名前で、LLM のツール呼び�
 
 ## 検証の方法
 
-- 構文・統合ロジック・JSON/CSV の形: `cargo test`（ユニット 750 + 統合 14）
-- 上流との実測比較（速度・結果一致度）: [BENCHMARK.md](BENCHMARK.md) と `bench/compare.py`
-- エンジン網羅率: `python3 tools/coverage.py /path/to/searxng`
+- 構文・統合ロジック・JSON/CSV の形: `cargo test`
+- 上流との過去の実測比較（HTML エンジン削除前の履歴スナップショット）: [BENCHMARK.md](BENCHMARK.md) と `bench/compare.py`（エンジン削除後の検索品質・比較可能性は未再測定）
+- エンジン網羅率: `python3 tools/coverage.py /path/to/searxng settings.toml`
 
 ## 完全互換に近づけるには
 
-1. ~~残りエンジン型の移植~~ → **完了（226/226）**。DB ドライバ直結の 8 種は依存を増やさない方針でスタブ
+1. エンジン型は当初 226/226 を移植した後、汎用 `xpath` を含む計 78 個の HTML 取得エンジンを削除済み（DB ドライバ直結の 8 種は `db-engines` フィーチャーで実装）
 2. `/stats` と UI テンプレートを上流資産に合わせる
 3. i18n のテンプレート全面適用とロケール拡大
 4. UI テンプレートのマークアップを上流に合わせる
 
 ## 商用 API をエンジンとして併用する
 
-RustXNG はメタ検索のハブなので、商用検索 API を「170 のエンジンの 1 つ」として足せます。API のカバレッジと RustXNG 側のランキング（関連度・権威・本文）を組み合わせられます。
+RustXNG はメタ検索のハブなので、商用検索 API を登録エンジンの 1 つとして足せます。API のカバレッジと RustXNG 側のランキング（関連度・権威・スニペット）を組み合わせられます。
 
 `exaapi` / `braveapi` は実装済みで既定は無効です。設定ファイルで有効化します。
 
@@ -99,7 +100,9 @@ SEARXNG_SETTINGS_PATH=my-settings.toml ./rustxng --port 29483
 
 > 0.13.0 で `EngineConfig::disabled` を三状態（`Option<bool>`）にしました。以前は `disabled = false` が「未指定」と区別できず、既定で無効なエンジンを有効化できませんでした。
 
-### 実測（100 問）
+### 実測（100 問・履歴スナップショット）
+
+> **履歴スナップショット：** 下表は汎用 `xpath` を含む計 78 個の HTML 取得エンジンを削除する前の測定記録であり、エンジン削除後の検索品質や比較可能性は再測定していません。
 
 | 構成 | hit@1 | hit@5 | MRR |
 | --- | ---: | ---: | ---: |

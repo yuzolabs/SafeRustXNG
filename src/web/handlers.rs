@@ -50,7 +50,6 @@ pub struct SearchParams {
     /// Agent-facing extension: drop these domains (comma separated).
     pub exclude_domains: Option<String>,
     /// Agent-facing extension: fetch and return the page text of the top results.
-    pub include_raw_content: Option<String>,
     /// Engine start strategy: "parallel" (default) or "staged".
     pub strategy: Option<String>,
 }
@@ -228,11 +227,6 @@ async fn run_search(
         max_results: params.max_results.map(|limit| limit.clamp(1, 200)),
         include_domains: split_param(params.include_domains.as_deref()).unwrap_or_default(),
         exclude_domains: split_param(params.exclude_domains.as_deref()).unwrap_or_default(),
-        include_raw_content: params
-            .include_raw_content
-            .as_deref()
-            .map(|value| matches!(value, "1" | "true" | "on" | "yes"))
-            .unwrap_or(false),
         site_retry_done: false,
         strategy: match params.strategy.as_deref() {
             Some("staged") => crate::settings::SearchStrategy::Staged,
