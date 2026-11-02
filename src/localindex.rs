@@ -11,19 +11,9 @@ use std::path::Path;
 
 use tantivy::collector::TopDocs;
 use tantivy::query::{BooleanQuery, Occur, Query, QueryParser, TermQuery};
-use tantivy::schema::{
-    Field, IndexRecordOption, STORED, STRING, Schema, TextFieldIndexing, TextOptions, Value,
-};
+use tantivy::schema::{Field, IndexRecordOption, Value};
 use tantivy::tokenizer::{LowerCaser, NgramTokenizer, TextAnalyzer};
-use tantivy::{Index, IndexReader, IndexWriter, ReloadPolicy, Term, doc};
-
-/// One page ready to be indexed.
-pub struct Page<'a> {
-    pub url: &'a str,
-    pub title: &'a str,
-    pub body: &'a str,
-    pub lang: &'a str,
-}
+use tantivy::{Index, IndexReader, ReloadPolicy, Term};
 
 /// One search hit.
 #[derive(Debug, Clone, PartialEq)]
@@ -43,7 +33,6 @@ struct Fields {
     body: Field,
     title_ja: Field,
     body_ja: Field,
-    lang: Field,
 }
 
 /// An opened local index.
@@ -51,11 +40,12 @@ pub struct LocalIndex {
     index: Index,
     reader: IndexReader,
     fields: Fields,
-    /// Present only for the process that writes the index.
-    writer: Option<std::sync::Mutex<IndexWriter>>,
 }
 
-fn build_schema() -> Schema {
+#[cfg(test)]
+fn build_schema() -> tantivy::schema::Schema {
+    use tantivy::schema::{STORED, STRING, Schema, TextFieldIndexing, TextOptions};
+
     let mut builder = Schema::builder();
     // The plain tokenizer for space-separated languages.
     let plain = TextOptions::default().set_indexing_options(
@@ -88,28 +78,8 @@ impl LocalIndex {
     /// Open the index for reading. Safe to call from any number of processes,
     /// including while another process writes documents.
     pub fn open(path: &Path) -> Result<Self, String> {
-        Self::open_inner(path, false)
-    }
-
-    /// Open the index for writing. Only one process may hold this at a time.
-    pub fn open_for_write(path: &Path) -> Result<Self, String> {
-        Self::open_inner(path, true)
-    }
-
-    fn open_inner(path: &Path, writable: bool) -> Result<Self, String> {
-        // Only the writer creates the directory: a reader that finds nothing
-        // must not litter the working tree with an empty index.
-        if writable {
-            std::fs::create_dir_all(path).map_err(|error| format!("create {path:?}: {error}"))?;
-        } else if !path.exists() {
-            return Err(format!("no index at {path:?}"));
-        }
-        let schema = build_schema();
-        let index = match Index::open_in_dir(path) {
-            Ok(index) => index,
-            Err(_) => Index::create_in_dir(path, schema.clone())
-                .map_err(|error| format!("create index: {error}"))?,
-        };
+        let index = Index::open_in_dir(path)
+            .map_err(|error| format!("open existing index at {path:?}: {error}"))?;
         let tokenizer = TextAnalyzer::builder(
             NgramTokenizer::new(2, 2, false).map_err(|error| error.to_string())?,
         )
@@ -121,15 +91,6 @@ impl LocalIndex {
             .reload_policy(ReloadPolicy::OnCommitWithDelay)
             .try_into()
             .map_err(|error| format!("reader: {error}"))?;
-        let writer = if writable {
-            Some(
-                index
-                    .writer(256_000_000)
-                    .map_err(|error| format!("writer: {error}"))?,
-            )
-        } else {
-            None
-        };
         let schema = index.schema();
         let fields = Fields {
             url: schema.get_field("url").map_err(|error| error.to_string())?,
@@ -145,66 +106,17 @@ impl LocalIndex {
             body_ja: schema
                 .get_field("body_ja")
                 .map_err(|error| error.to_string())?,
-            lang: schema
-                .get_field("lang")
-                .map_err(|error| error.to_string())?,
         };
         Ok(Self {
             index,
             reader,
             fields,
-            writer: writer.map(std::sync::Mutex::new),
         })
     }
 
     /// Number of indexed documents.
     pub fn document_count(&self) -> u64 {
         self.reader.searcher().num_docs()
-    }
-
-    /// Whether this URL is already indexed (committed documents only).
-    /// Allows document importers to avoid indexing the same URL twice.
-    pub fn has_url(&self, url: &str) -> bool {
-        let searcher = self.reader.searcher();
-        let query = TermQuery::new(
-            Term::from_field_text(self.fields.url, url),
-            IndexRecordOption::Basic,
-        );
-        searcher
-            .search(&query, &TopDocs::with_limit(1).order_by_score())
-            .map(|hits| !hits.is_empty())
-            .unwrap_or(false)
-    }
-
-    /// Add one page. The caller decides when to commit.
-    pub fn add(&self, page: &Page<'_>) -> Result<(), String> {
-        let writer = self.writer.as_ref().ok_or("index opened read-only")?;
-        let writer = writer.lock().map_err(|_| "writer poisoned")?;
-        writer
-            .add_document(doc!(
-                self.fields.url => page.url.to_string(),
-                self.fields.title => page.title.to_string(),
-                self.fields.body => page.body.to_string(),
-                self.fields.title_ja => page.title.to_string(),
-                self.fields.body_ja => page.body.to_string(),
-                self.fields.lang => page.lang.to_string(),
-            ))
-            .map_err(|error| format!("add document: {error}"))?;
-        Ok(())
-    }
-
-    /// Flush everything added so far and make it searchable.
-    pub fn commit(&self) -> Result<(), String> {
-        if let Some(writer) = self.writer.as_ref() {
-            let mut writer = writer.lock().map_err(|_| "writer poisoned")?;
-            writer
-                .commit()
-                .map_err(|error| format!("commit: {error}"))?;
-        }
-        self.reader
-            .reload()
-            .map_err(|error| format!("reload: {error}"))?;
-        Ok(())
     }
 
     /// Rank the indexed pages for a query.
@@ -270,12 +182,34 @@ impl LocalIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tantivy::doc;
     use tempfile::TempDir;
 
-    fn temp_index() -> (TempDir, LocalIndex) {
+    fn existing_index(pages: &[(&str, &str, &str)]) -> (TempDir, LocalIndex) {
         let dir = TempDir::new().unwrap();
-        let index = LocalIndex::open_for_write(dir.path()).unwrap();
-        (dir, index)
+        let schema = build_schema();
+        let index = Index::create_in_dir(dir.path(), schema.clone()).unwrap();
+        let tokenizer = TextAnalyzer::builder(NgramTokenizer::new(2, 2, false).unwrap())
+            .filter(LowerCaser)
+            .build();
+        index.tokenizers().register(BIGRAM, tokenizer);
+        let mut writer = index.writer(50_000_000).unwrap();
+        for &(url, title, body) in pages {
+            writer
+                .add_document(doc!(
+                    schema.get_field("url").unwrap() => url,
+                    schema.get_field("title").unwrap() => title,
+                    schema.get_field("body").unwrap() => body,
+                    schema.get_field("title_ja").unwrap() => title,
+                    schema.get_field("body_ja").unwrap() => body,
+                    schema.get_field("lang").unwrap() => "",
+                ))
+                .unwrap();
+        }
+        writer.commit().unwrap();
+        drop(writer);
+        let reader = LocalIndex::open(dir.path()).unwrap();
+        (dir, reader)
     }
 
     #[test]
@@ -287,49 +221,53 @@ mod tests {
             "a missing index is an error"
         );
         assert!(!missing.exists(), "the reader must not create it");
-        // The writer creates it on demand.
-        let index = LocalIndex::open_for_write(&missing).unwrap();
-        index.commit().unwrap();
-        assert!(missing.exists());
     }
 
     #[test]
-    fn indexes_and_finds_english_pages() {
-        let (_dir, index) = temp_index();
-        index
-            .add(&Page {
-                url: "https://tokio.rs/tokio/tutorial",
-                title: "Tutorial",
-                body: "async runtime for rust with tasks and futures",
-                lang: "en",
-            })
-            .unwrap();
-        index
-            .add(&Page {
-                url: "https://example.com/other",
-                title: "Other",
-                body: "nothing to do with the query",
-                lang: "en",
-            })
-            .unwrap();
-        index.commit().unwrap();
+    fn a_reader_does_not_create_an_index_in_an_empty_directory() {
+        let dir = TempDir::new().unwrap();
+        assert!(LocalIndex::open(dir.path()).is_err());
+        assert!(!dir.path().join("meta.json").exists());
+    }
+
+    #[test]
+    fn a_reader_does_not_replace_a_corrupt_index() {
+        let dir = TempDir::new().unwrap();
+        let metadata = dir.path().join("meta.json");
+        std::fs::write(&metadata, "corrupt index metadata").unwrap();
+        assert!(LocalIndex::open(dir.path()).is_err());
+        assert_eq!(
+            std::fs::read_to_string(metadata).unwrap(),
+            "corrupt index metadata"
+        );
+    }
+
+    #[test]
+    fn finds_english_pages_in_an_existing_index() {
+        let (_dir, index) = existing_index(&[
+            (
+                "https://tokio.rs/tokio/tutorial",
+                "Tutorial",
+                "async runtime for rust with tasks and futures",
+            ),
+            (
+                "https://example.com/other",
+                "Other",
+                "nothing to do with the query",
+            ),
+        ]);
         assert_eq!(index.document_count(), 2);
         let hits = index.search("async runtime rust", 5).unwrap();
         assert_eq!(hits[0].url, "https://tokio.rs/tokio/tutorial");
     }
 
     #[test]
-    fn indexes_and_finds_japanese_pages() {
-        let (_dir, index) = temp_index();
-        index
-            .add(&Page {
-                url: "https://www.gsi.go.jp/",
-                title: "国土地理院",
-                body: "地図と測量の情報を提供しています",
-                lang: "ja",
-            })
-            .unwrap();
-        index.commit().unwrap();
+    fn finds_japanese_pages_in_an_existing_index() {
+        let (_dir, index) = existing_index(&[(
+            "https://www.gsi.go.jp/",
+            "国土地理院",
+            "地図と測量の情報を提供しています",
+        )]);
         let hits = index.search("国土地理院 地図", 5).unwrap();
         assert_eq!(hits[0].url, "https://www.gsi.go.jp/");
     }
