@@ -39,7 +39,7 @@ Builds from this checkout listen on 29483 internally. Use explicit arguments wit
 so the command also works with older images:
 
 ```bash
-docker run --rm -p 127.0.0.1:29483:29483 -e SEARXNG_PORT=29483 ghcr.io/sahenjp/rustxng:latest --bind 0.0.0.0 --port 29483
+docker run --rm -p 127.0.0.1:29483:29483 -e SEARXNG_PORT=29483 ghcr.io/yuzolabs/saferustxng:latest --bind 0.0.0.0 --port 29483
 ```
 
 To keep the legacy host endpoint with a new image:
