@@ -19,8 +19,8 @@ curl --fail --max-time 3 http://127.0.0.1:29483/config
 ```
 
 Confirm that `/config` contains a `version` starting with `RustXNG` followed by a space, an `engines` array,
-and `brand.GIT_URL` equal to `https://github.com/sahenjp/RustXNG`, then verify search using step 4.
-Because SafeRustXNG keeps the binary name `rustxng`, version `0.26.0`, and `brand.GIT_URL`, `/config` version fields and `rustxng --version` alone do not prove that an existing binary or service came from SafeRustXNG `main` rather than an upstream `sahenjp/RustXNG` `v0.26.0` binary.
+and `brand.GIT_URL` equal to `https://github.com/yuzolabs/SafeRustXNG`, then verify search using step 4.
+Because SafeRustXNG keeps the binary name `rustxng` and version `0.26.0`, `/config` version fields and `rustxng --version` alone cannot distinguish its provenance; current SafeRustXNG builds return `https://github.com/yuzolabs/SafeRustXNG` in `brand.GIT_URL` (unlike upstream `sahenjp/RustXNG` `v0.26.0`), whereas SafeRustXNG builds from before this change still return the upstream URL, so an existing service should only be reused when its provenance is known.
 Only reuse an existing service or installed binary for HTML-free operation if its build provenance from SafeRustXNG `main` is known (and `/config` does not expose removed HTML engines); otherwise build from source in step 2.
 A health response alone is insufficient. If the port belongs to another service, choose an unused port and preserve that service.
 

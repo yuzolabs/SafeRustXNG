@@ -28,6 +28,7 @@
 - English and Japanese READMEs now start with agent setup instructions, distinguish current functionality from future work, and link to measured SealQA retrieval results and the audit.
 - Docker examples and smoke tests publish on loopback by default. Older published images use an explicit server port in the examples.
 - Source installation documentation targets the SafeRustXNG `main` branch (`https://github.com/yuzolabs/SafeRustXNG/tree/main`) while keeping these changes under `[Unreleased]` with binary name `rustxng` and version `0.26.0` unchanged (unverified against upstream `sahenjp/RustXNG` `v0.26.0` release binaries and images).
+- `/config` brand URLs (`GIT_URL`, `DOCS_URL`, `ISSUE_URL`, `NEW_ISSUE_URL`) and the Marginalia engine User-Agent now point at `https://github.com/yuzolabs/SafeRustXNG`; `tools/smoke_agent_setup.py` expects the new `brand.GIT_URL`. Upstream `sahenjp/RustXNG` `v0.26.0` binaries keep reporting the upstream URLs.
 
 ## [0.26.0] - 2026-11-01
 
