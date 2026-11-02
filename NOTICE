@@ -57,8 +57,7 @@ Using SafeRustXNG from an MIT/Apache project
 --------------------------------------------
   SafeRustXNG is AGPL-3.0-or-later, so code that links it inherits AGPL.
   Running it as a separate program (spawning the binary, or talking to its
-  HTTP API on 127.0.0.1) keeps the caller under its own licence; this is how
-  rustdsh (MIT) integrates it.
+  HTTP API on 127.0.0.1) keeps the caller under its own licence.
 
   AGPL section 13: if you run a modified SafeRustXNG as a network service, users
   interacting with it must be offered the corresponding source.

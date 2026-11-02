@@ -4,8 +4,6 @@ name: release
 #
 # SafeRustXNG assets use `saferustxng-<tag>-<rustc triple>` (plus `.exe`
 # on Windows). The tag is part of the file name on every platform.
-# rustdsh's `rdsh rustxng install` expects upstream asset names and cannot
-# install these renamed assets.
 
 on:
   push:

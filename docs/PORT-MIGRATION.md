@@ -51,17 +51,6 @@ docker run --rm -p 127.0.0.1:8888:29483 saferustxng --bind 0.0.0.0 --port 29483
 `EXPOSE` documents the container port; it does not publish a host port.
 Specify a host IP intentionally when external access is required; configure access controls for that deployment.
 
-## rdsh
-
-Set the endpoint explicitly instead of relying on a client's legacy 8888 fallback:
-
-```bash
-RUSTXNG_URL=http://127.0.0.1:29483 rdsh search-web --engine rustxng "query"
-```
-
-If `SEARXNG_URL` is already set, it may take precedence; update or unset it intentionally.
-See [the rdsh guide](RDSH.md). This repository does not change rdsh's own discovery implementation.
-
 ## Compatibility and historical data
 
 Explicit custom ports continue to work. Historical benchmarks and audit reproductions retain their original

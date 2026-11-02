@@ -12,7 +12,7 @@ enable_metrics = true
 bind_address = "127.0.0.1"
 port = 29483
 # リクエストが無いままこの秒数が過ぎたら終了する（0 で無効）。
-# rdsh などが起動するサイドカーが残り続けるのを防ぐ用途。
+# 一時的なバックグラウンドプロセスが残り続けるのを防ぐ用途。
 # 環境変数 SAFERUSTXNG_IDLE_TIMEOUT でも指定できる。
 idle_timeout = 0
 secret_key = "ultrasecretkey"

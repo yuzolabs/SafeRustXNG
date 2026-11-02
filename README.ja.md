@@ -152,7 +152,7 @@ cargo build --release --locked --bin saferustxng
 
 このチェックアウトの既定値は`127.0.0.1:29483`です。上流`sahenjp/RustXNG`の配布済みv0.26.0バイナリ（上流のみ・履歴情報）の既定値は8888のままですが、
 上記の`--port 29483`を明示したコマンドは両方で使えます。
-rdshを含む移行方法は[ポート移行ガイド](docs/PORT-MIGRATION.md)を参照してください。
+移行方法は[ポート移行ガイド](docs/PORT-MIGRATION.md)を参照してください。
 
 既定設定はバイナリに組み込まれています。設定ファイルを指定する場合は次のように起動します。
 
@@ -209,7 +209,6 @@ Seal-0はSeal-Hardの部分集合で、重複する質問には同一の観測�
 | [互換性](docs/COMPATIBILITY.md) | SearXNGとの互換性・差異 |
 | [対応範囲](docs/COVERAGE.md) | エンジンの対応範囲 |
 | [ローカルインデックス](docs/LOCAL-INDEX.md) | 任意の既存BM25インデックス（`search` / `stats`のみ、HTMLクロールなし） |
-| [rdsh](docs/RDSH.md) | rdshとの連携 |
 | [監査](docs/AUDIT-2026-11-02.md) | 指摘事項・再現ログ・優先順位 |
 | [セキュリティ](SECURITY.md) | 脆弱性の報告方法と依存関係の注意事項 |
 

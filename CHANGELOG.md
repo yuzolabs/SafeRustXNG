@@ -9,6 +9,7 @@
 - Removed 78 HTML-scraping engines (including the generic `xpath` engine), result-page HTML body fetching (`include_raw_content` processing, `raw_content` result fields, and `search.raw_content_limit` / `search.raw_content_chars` settings), and the `rustxng-index crawl` HTML crawler; legacy `include_raw_content` query parameters are ignored without network requests to result URLs, and `/research` summarizes upstream engine `content` snippets only.
 - Removed `LocalIndex::open_for_write`, `LocalIndex::add`, `LocalIndex::commit`, `LocalIndex::has_url`, and the `Page` write API; `LocalIndex` and `saferustxng-index` (formerly `rustxng-index`) now support read-only `search` and `stats` over existing compatible indexes only and do not create or repair missing, empty, or corrupted indexes.
 - Removed the upstream-specific community setup record in `docs/COMMUNITY-SETUP.md`, which did not describe this fork's repository settings.
+- Removed legacy product-specific integration documentation and installer-specific assumptions; generic idle shutdown (`server.idle_timeout` / `SAFERUSTXNG_IDLE_TIMEOUT`) remains supported.
 
 ### Security
 
@@ -173,20 +174,16 @@
 
 ## [0.21.1] - 2026-10-31
 
-rdsh が起動するサイドカーが残り続ける問題に対応しました。
+一定時間リクエストがない場合に自動終了するアイドル終了機能を追加しました。
 
 ### Added
 
-- **アイドル終了** — `server.idle_timeout`（秒、既定 0 = 無効）または環境変数 `RUSTXNG_IDLE_TIMEOUT`。指定秒数リクエストが無ければ正常終了します。rdsh は `search-web` のたびに RustXNG をサイドカーとして起動するため、終了しないプロセスが溜まることがありました
+- **アイドル終了** — `server.idle_timeout`（秒、既定 0 = 無効）または環境変数 `RUSTXNG_IDLE_TIMEOUT`。指定秒数リクエストが無ければ正常終了します
 - 実機で確認: `RUSTXNG_IDLE_TIMEOUT=8` で起動し、リクエスト後に 8 秒待つと `idle timeout reached, shutting down` を出して終了
-
-### Docs
-
-- docs/RDSH.md にサイドカーの後始末を追記
 
 ## [0.21.0] - 2026-10-31
 
-整理・脆弱性対応・推奨設定の既定化・rdsh 連携を行いました。
+整理・脆弱性対応・推奨設定の既定化を行いました。
 
 ### Changed
 
@@ -203,8 +200,7 @@ rdsh が起動するサイドカーが残り続ける問題に対応しました
 
 ### Added
 
-- **docs/RDSH.md** — rdsh から使う手順。既定ポート 8888 が rdsh の探索先と一致するため追加設定は不要。`rdsh search-web --engine rustxng --json` が実際に解釈できることを確認
-- README に自前インデックスと rdsh 連携を追記
+- README に自前インデックスを追記
 
 ### Removed
 
@@ -765,8 +761,7 @@ Tavily を全次元で上回る推奨設定を既定に組み込んだリリー�
 
 - ビルド済みバイナリの配布: Linux（glibc / 静的 musl）、macOS（arm64 / x86_64）、
   Windows（x86_64）をタグ push で自動ビルドし、`.sha256` とともに Release に添付
-  （`.github/workflows/release.yml`）。資産名は `rustxng-<tag>-<target>` で、
-  rustdsh の `rdsh rustxng install` がこの名前で選ぶ
+  （`.github/workflows/release.yml`）。資産名は `rustxng-<tag>-<target>`
 - CI を Linux・macOS・Windows の matrix に拡張し、clippy `-D warnings`、
   `--no-default-features` ビルド、Docker イメージの `/healthz` 起動確認を追加
 

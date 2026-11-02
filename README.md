@@ -154,7 +154,7 @@ The built binary is `target/release/saferustxng` and reports `SafeRustXNG 0.26.0
 
 This checkout defaults to `127.0.0.1:29483`. Upstream-only/historical `sahenjp/RustXNG` v0.26.0 release binaries still default to 8888;
 the explicit `--port 29483` commands above work with either version.
-See [port migration and selection](docs/PORT-MIGRATION.md), including rdsh configuration.
+See [port migration and selection](docs/PORT-MIGRATION.md).
 
 Defaults are embedded in the binary. To supply a configuration file:
 
@@ -213,7 +213,6 @@ use `max_results`, domain filters, and client-side projection today.
 | [Compatibility](docs/COMPATIBILITY.md) | SearXNG compatibility and differences |
 | [Coverage](docs/COVERAGE.md) | Engine coverage |
 | [Local index](docs/LOCAL-INDEX.md) | Optional existing local BM25 index (`search` / `stats`; no HTML crawler) |
-| [rdsh](docs/RDSH.md) | Integration with rdsh |
 | [Audit](docs/AUDIT-2026-11-02.md) | Findings, reproduction logs, and priorities |
 | [Security](SECURITY.md) | Reporting vulnerabilities and dependency advisories |
 
