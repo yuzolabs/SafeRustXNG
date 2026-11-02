@@ -1,11 +1,11 @@
 [package]
-name = "rustxng"
+name = "saferustxng"
 version = "0.26.0"
 edition = "2024"
 rust-version = "1.88"
 license = "AGPL-3.0-or-later"
 description = "SearXNG を Rust で書き直したメタ検索エンジン (AGPL-3.0-or-later)"
-repository = "https://github.com/sahenjp/rustxng"
+repository = "https://github.com/yuzolabs/SafeRustXNG"
 readme = "README.md"
 keywords = ["searxng", "metasearch", "search-engine", "privacy"]
 categories = ["web-programming::http-server"]

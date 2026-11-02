@@ -4,7 +4,7 @@
   "enforcement": "active",
   "bypass_actors": [
     {
-      "actor_id": 262773687,
+      "actor_id": 240885066,
       "actor_type": "User",
       "bypass_mode": "always"
     }

@@ -482,7 +482,7 @@ pub fn default_user_agent() -> String {
     build_user_agents()
         .into_iter()
         .next()
-        .unwrap_or_else(|| "rustxng".to_string())
+        .unwrap_or_else(|| "saferustxng".to_string())
 }
 
 /// Build the user agent pool like upstream's `data/useragents.json`.

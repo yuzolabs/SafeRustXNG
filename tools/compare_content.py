@@ -2,7 +2,7 @@
 """Side-by-side content-quality comparison across search backends.
 
 Scores bench/content-*.json files with identical metrics and prints a table so
-RustXNG can be compared against SearXNG, Tavily, Ollama, ... with one command.
+SafeRustXNG can be compared against SearXNG, Tavily, Ollama, ... with one command.
 
 Usage:
     python3 tools/compare_content.py

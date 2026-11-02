@@ -24,13 +24,13 @@ jobs:
       - name: Start the server
         run: |
           set -euo pipefail
-          nohup ./target/release/rustxng --port 29483 > /tmp/rustxng.log 2>&1 &
+          nohup ./target/release/saferustxng --port 29483 > /tmp/saferustxng.log 2>&1 &
           for _ in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:29483/healthz > /dev/null; then exit 0; fi
             sleep 2
           done
           echo 'server did not become ready' >&2
-          cat /tmp/rustxng.log >&2
+          cat /tmp/saferustxng.log >&2
           exit 1
       - name: Run the 100 question benchmark
         run: |

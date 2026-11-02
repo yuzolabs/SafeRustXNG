@@ -2,10 +2,8 @@ name: release
 
 # Publish the platform binaries on an annotated version tag.
 #
-# rustdsh installs this sidecar with `rdsh rustxng install`, which reads
-# /releases/latest and picks the asset whose name is
-# `rustxng-<tag>-<rustc triple>` (plus `.exe` on Windows). Keep that shape:
-# the tag is part of the file name, so one rule matches every platform.
+# SafeRustXNG assets use `saferustxng-<tag>-<rustc triple>` (plus `.exe`
+# on Windows). The tag is part of the file name on every platform.
 
 on:
   push:
@@ -43,24 +41,24 @@ jobs:
           # glibc 2.35 floor: build on 22.04 so 24.04 and 25.x still run it.
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            artifact: rustxng
+            artifact: saferustxng
           # Static: runs on any Linux, including Alpine.
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-musl
-            artifact: rustxng
+            artifact: saferustxng
             musl: true
           # Both macOS targets build on the arm64 runner: the Apple toolchain
           # cross-compiles to x86_64, and the Intel runner labels are retired
           # or queue for hours.
           - os: macos-15
             target: aarch64-apple-darwin
-            artifact: rustxng
+            artifact: saferustxng
           - os: macos-15
             target: x86_64-apple-darwin
-            artifact: rustxng
+            artifact: saferustxng
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact: rustxng.exe
+            artifact: saferustxng.exe
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
@@ -96,7 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           source="target/${{ matrix.target }}/release/${{ matrix.artifact }}"
-          name="rustxng-${RELEASE_TAG}-${{ matrix.target }}"
+          name="saferustxng-${RELEASE_TAG}-${{ matrix.target }}"
           case "${{ matrix.artifact }}" in
             *.exe) name="$name.exe" ;;
           esac
@@ -113,7 +111,7 @@ jobs:
           ls -l dist
       - uses: actions/upload-artifact@v7.0.2
         with:
-          name: rustxng-${{ matrix.target }}
+          name: saferustxng-${{ matrix.target }}
           path: dist/*
           if-no-files-found: error
           retention-days: 7
@@ -130,7 +128,7 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
       - uses: actions/download-artifact@v8.0.2
         with:
-          pattern: rustxng-*
+          pattern: saferustxng-*
           merge-multiple: true
           path: dist
       - name: Require the complete, expected asset set
@@ -140,8 +138,8 @@ jobs:
           expected="x86_64-unknown-linux-gnu x86_64-unknown-linux-musl aarch64-apple-darwin x86_64-apple-darwin x86_64-pc-windows-msvc"
           for target in $expected; do
             case "$target" in
-              *windows*) name="rustxng-${RELEASE_TAG}-$target.exe" ;;
-              *) name="rustxng-${RELEASE_TAG}-$target" ;;
+              *windows*) name="saferustxng-${RELEASE_TAG}-$target.exe" ;;
+              *) name="saferustxng-${RELEASE_TAG}-$target" ;;
             esac
             test -s "dist/$name" || { echo "missing asset: $name" >&2; exit 1; }
             test -s "dist/$name.sha256" || { echo "missing sidecar: $name.sha256" >&2; exit 1; }
@@ -160,9 +158,9 @@ jobs:
             inside { print }
           ' CHANGELOG.md > "$RUNNER_TEMP/section.md"
           if [ -s "$RUNNER_TEMP/section.md" ]; then
-            { echo "# RustXNG $RELEASE_TAG"; echo; cat "$RUNNER_TEMP/section.md"; } > "$RUNNER_TEMP/notes.md"
+            { echo "# SafeRustXNG $RELEASE_TAG"; echo; cat "$RUNNER_TEMP/section.md"; } > "$RUNNER_TEMP/notes.md"
           else
-            { echo "# RustXNG $RELEASE_TAG"; echo; echo "チェックサムは各アセットの .sha256 を参照してください。"; } > "$RUNNER_TEMP/notes.md"
+            { echo "# SafeRustXNG $RELEASE_TAG"; echo; echo "チェックサムは各アセットの .sha256 を参照してください。"; } > "$RUNNER_TEMP/notes.md"
           fi
           echo "--- notes ---"
           head -20 "$RUNNER_TEMP/notes.md"
@@ -177,7 +175,7 @@ jobs:
             echo "release $RELEASE_TAG already exists; adding missing assets"
             exit 0
           fi
-          gh release create "$RELEASE_TAG" --verify-tag --title "RustXNG $RELEASE_TAG" \
+          gh release create "$RELEASE_TAG" --verify-tag --title "SafeRustXNG $RELEASE_TAG" \
             --notes-file "$RUNNER_TEMP/notes.md"
       - name: Upload only the assets the release does not have
         if: ${{ !inputs.dry_run }}

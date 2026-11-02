@@ -112,7 +112,7 @@ impl Default for General {
     fn default() -> Self {
         Self {
             debug: false,
-            instance_name: "RustXNG".into(),
+            instance_name: "SafeRustXNG".into(),
             contact_url: String::new(),
             donation_url: String::new(),
             privacypolicy_url: String::new(),

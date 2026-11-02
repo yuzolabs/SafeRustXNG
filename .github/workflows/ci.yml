@@ -50,7 +50,7 @@ jobs:
       - name: Build and test
         run: cargo test --all-targets
       - name: Build the server binary
-        run: cargo build --locked --bin rustxng
+        run: cargo build --locked --bin saferustxng
       - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.12'
@@ -58,7 +58,7 @@ jobs:
         run: python -m unittest discover -s tools -p "test_*.py"
       - name: Agent setup smoke test (offline)
         # The script resolves the .exe suffix on Windows.
-        run: python tools/smoke_agent_setup.py --binary target/debug/rustxng
+        run: python tools/smoke_agent_setup.py --binary target/debug/saferustxng
       - name: Build the example
         run: cargo build --release --example benchmark
       - name: Lint the Japanese docs
@@ -99,11 +99,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Build the image
-        run: docker build --tag rustxng:ci .
+        run: docker build --tag saferustxng:ci .
       - name: The image serves /healthz
         run: |
           set -euo pipefail
-          docker run --detach --name rustxng-ci --publish 127.0.0.1:29483:29483 rustxng:ci
+          docker run --detach --name saferustxng-ci --publish 127.0.0.1:29483:29483 saferustxng:ci
           for _ in $(seq 1 30); do
             if curl --fail --silent --output /dev/null http://127.0.0.1:29483/healthz; then
               echo "healthz ok"
@@ -111,8 +111,8 @@ jobs:
             fi
             sleep 2
           done
-          docker logs rustxng-ci
+          docker logs saferustxng-ci
           exit 1
       - name: Stop the container
         if: always()
-        run: docker rm --force rustxng-ci || true
+        run: docker rm --force saferustxng-ci || true

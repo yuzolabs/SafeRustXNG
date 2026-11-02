@@ -172,7 +172,8 @@ mod tests {
 
     #[test]
     fn rows_become_keyvalue_results() {
-        let directory = std::env::temp_dir().join(format!("rustxng-sqlite-{}", std::process::id()));
+        let directory =
+            std::env::temp_dir().join(format!("saferustxng-sqlite-{}", std::process::id()));
         std::fs::create_dir_all(&directory).expect("dir");
         let path = directory.join("test.db");
         let path_text = path.to_string_lossy().to_string();

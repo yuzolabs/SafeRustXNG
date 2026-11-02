@@ -2,7 +2,7 @@
 """Measure SealQA reference-page retrieval, not official QA answer accuracy.
 
 Requires pyarrow. Dataset bytes stay in the user's cache. Only questions are
-sent to RustXNG; reference answers and URLs are used exclusively for scoring.
+sent to SafeRustXNG; reference answers and URLs are used exclusively for scoring.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ def summarise(rows: list[dict]) -> dict:
 
 def search(base: str, question: str, timeout: float) -> dict:
     query = urllib.parse.urlencode({"q": question, "format": "json", "max_results": 10, "full": 1})
-    request = urllib.request.Request(base.rstrip("/") + "/search?" + query, headers={"User-Agent": "rustxng-sealqa-retrieval-eval/1.0"})
+    request = urllib.request.Request(base.rstrip("/") + "/search?" + query, headers={"User-Agent": "saferustxng-sealqa-retrieval-eval/1.0"})
     started = time.perf_counter()
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -103,7 +103,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", default="http://127.0.0.1:18991")
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--cache", type=Path, default=Path.home() / ".cache/rustxng-sealqa" / REVISION)
+    parser.add_argument("--cache", type=Path, default=Path.home() / ".cache/saferustxng-sealqa" / REVISION)
     parser.add_argument("--delay", type=float, default=0.25)
     parser.add_argument("--timeout", type=float, default=20)
     args = parser.parse_args()

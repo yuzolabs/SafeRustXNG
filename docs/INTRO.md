@@ -1,4 +1,4 @@
-# RustXNG — AI エージェントに使わせる統合検索エンジン
+# SafeRustXNG — AI エージェントに使わせる統合検索エンジン
 
 > 検索 API を 1 本に。複数の検索先を、自分のサーバーから。
 >
@@ -6,7 +6,7 @@
 
 ## これは何か
 
-**RustXNG は、AI エージェントに検索させるためのセルフホスト型メタ検索エンジンです。**
+**SafeRustXNG は、AI エージェントに検索させるためのセルフホスト型メタ検索エンジンです。**
 
 Wikipedia・GitHub・arXiv・PubMed・crates.io・Google News（RSS）・Bing News（RSS）など、非 HTML の API・フィードを検索するエンジン群（`settings.toml` に 183 エントリ、既定有効 98）を 1 つの JSON API にまとめ、Rust の単一バイナリで動きます。Python もデータベースも必須の API キーも要りません。
 
@@ -85,8 +85,8 @@ query_str = "SELECT title, body FROM docs WHERE body LIKE '%' || $1 || '%'"
 
 ### 6. プライバシーとコスト
 
-RustXNG 自体はセルフホストで動作し、独自の広告・追跡・プロファイル作成は行いません。多くのエンジンは有料 API キーなしで利用できます。
-一方で、**検索クエリはリクエストで選択された外部の検索プロバイダーへ送信される**ため、RustXNG サーバーの IP アドレスや検索語は各プロバイダーに届き、プロバイダー側でのログ記録や保持期間は各事業者のポリシーに依存します。また、画像プロキシ（`image_proxy`）は任意機能であり既定では無効（`settings.toml` で `image_proxy = false`）です。
+SafeRustXNG 自体はセルフホストで動作し、独自の広告・追跡・プロファイル作成は行いません。多くのエンジンは有料 API キーなしで利用できます。
+一方で、**検索クエリはリクエストで選択された外部の検索プロバイダーへ送信される**ため、SafeRustXNG サーバーの IP アドレスや検索語は各プロバイダーに届き、プロバイダー側でのログ記録や保持期間は各事業者のポリシーに依存します。また、画像プロキシ（`image_proxy`）は任意機能であり既定では無効（`settings.toml` で `image_proxy = false`）です。
 
 ## エージェントへの組み込み方
 
@@ -130,19 +130,19 @@ curl 'http://127.0.0.1:29483/search?q=rust&format=json&max_results=5'
 
 ## 使い始める
 
-HTML 取得なし構成は SafeRustXNG の `main` ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）からのソース導入として提供しています。ソースからビルドして起動してください（生成されるバイナリ名は `rustxng`、バージョン表記は `0.26.0` のままのため、バージョン表示だけでは上流ビルドと区別できません）。上流 `sahenjp/RustXNG` の `v0.26.0` リリースバイナリや公開コンテナイメージは上流のみ（履歴情報）であり、SafeRustXNG の変更が含まれることは確認されていません。
+HTML 取得なし構成は SafeRustXNG の `main` ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）からのソース導入として提供しています。ソースからビルドして起動してください（生成されるバイナリ名は `saferustxng` で `SafeRustXNG 0.26.0` を返しますが、版番号 `0.26.0` は上流と同じであるため `SafeRustXNG` 表示と `/config` の `brand.GIT_URL` およびビルド出自を確認してください）。上流 `sahenjp/RustXNG` の `v0.26.0` リリースバイナリや公開コンテナイメージは上流のみ（履歴情報）であり、SafeRustXNG の変更が含まれることは確認されていません。
 
 ```bash
 git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
-cargo build --release --locked --bin rustxng
-./target/release/rustxng --bind 127.0.0.1 --port 29483
+cargo build --release --locked --bin saferustxng
+./target/release/saferustxng --bind 127.0.0.1 --port 29483
 ```
 
 上記チェックアウトから Docker イメージをローカルビルドする場合:
 
 ```bash
-docker build -t rustxng . && docker run --rm -p 127.0.0.1:29483:29483 rustxng
+docker build -t saferustxng . && docker run --rm -p 127.0.0.1:29483:29483 saferustxng
 ```
 
 `http://127.0.0.1:29483/` で検索画面、`/search?q=...&format=json` で API です。

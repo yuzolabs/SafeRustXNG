@@ -84,7 +84,7 @@ pub fn upstream_json(response: &SearchResponse) -> serde_json::Value {
     })
 }
 
-/// The rich JSON response (upstream fields plus rustxng extras) for
+/// The rich JSON response (upstream fields plus SafeRustXNG extras) for
 /// `format=json&full=1`.
 pub fn json_response_full(response: &SearchResponse) -> serde_json::Value {
     let mut value = upstream_json(response);
@@ -170,7 +170,7 @@ pub fn csv_response(response: &SearchResponse) -> Response {
         ));
     }
     let disposition = format!(
-        "attachment;Filename=rustxng-{}.csv",
+        "attachment;Filename=saferustxng-{}.csv",
         response.search_query.replace(['"', '\r', '\n'], "")
     );
     (

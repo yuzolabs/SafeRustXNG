@@ -1,4 +1,4 @@
-//! Latency benchmark for rustxng.
+//! Latency benchmark for SafeRustXNG.
 //!
 //! The binary boots the real application in process, drives it over HTTP like a
 //! client would and reports the latency distribution per query and per engine.
@@ -14,9 +14,9 @@ use std::net::SocketAddr;
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
-use rustxng::aggregator::Searcher;
-use rustxng::settings::Settings;
-use rustxng::web::{AppState, router};
+use saferustxng::aggregator::Searcher;
+use saferustxng::settings::Settings;
+use saferustxng::web::{AppState, router};
 
 const DEFAULT_QUERIES: &[&str] = &[
     "rust programming language",
@@ -309,7 +309,7 @@ async fn main() -> ExitCode {
     }
 
     println!(
-        "rustxng benchmark — {engine_count} engines, {} queries × {} repeats{}",
+        "SafeRustXNG benchmark — {engine_count} engines, {} queries × {} repeats{}",
         args.queries.len(),
         args.repeats,
         if args.time_range.is_empty() {

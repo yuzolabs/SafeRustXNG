@@ -9,11 +9,11 @@ use axum::body::{Body, Bytes};
 use axum::http::{Response, StatusCode, header};
 use axum::response::Redirect;
 use axum::routing::get;
-use rustxng::cache::{Cache, CachedResponse};
-use rustxng::deep_research::LLMClient;
-use rustxng::engine::{EngineRequest, FailureKind};
-use rustxng::network::{Network, NetworkError, validate_machine_content_type};
-use rustxng::settings::Settings;
+use saferustxng::cache::{Cache, CachedResponse};
+use saferustxng::deep_research::LLMClient;
+use saferustxng::engine::{EngineRequest, FailureKind};
+use saferustxng::network::{Network, NetworkError, validate_machine_content_type};
+use saferustxng::settings::Settings;
 
 async fn response_server(
     content_type: Option<&'static str>,
@@ -115,7 +115,7 @@ async fn html_is_rejected_before_waiting_for_its_body_or_retrying() {
                     (FailureKind::TooManyRequests, 300)
                 };
                 assert_eq!(error.failure_kind(), kind);
-                let states = rustxng::engine::state::EngineStates::default();
+                let states = saferustxng::engine::state::EngineStates::default();
                 assert_eq!(
                     states.record_failure("test", kind, &settings.search),
                     suspension

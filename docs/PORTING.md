@@ -78,7 +78,7 @@
 
 ## エンジン対応
 
-人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および HTML 内の埋め込み JSON を使うものを含む）は削除しました。あわせて、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`、`src/content.rs`）、エンジン向け HTML/XPath パーサ（`src/engine/xpath.rs` / `src/engine/xml.rs`、`scraper` 依存）、および `rustxng-index crawl` の HTML クローラーも削除済みです（`rustxng-index` は既存インデックスの `search` / `stats` のみ対応し、`/research` は API・フィードの `result.content` のみを使用します。Web の HTML UI と API・フィード要約のマークアップ除去は維持しています）。以下は残っているエンジンの例です。登録の全体は `src/engines/mod.rs`、同梱設定は `settings.toml` を参照してください。非 HTML レスポンスを扱う構成であり、公式 API 限定や利用規約への適合を保証するものではありません。また、エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、履歴数値を現在の性能保証として扱うことはできません。
+人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および HTML 内の埋め込み JSON を使うものを含む）は削除しました。あわせて、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`、`src/content.rs`）、エンジン向け HTML/XPath パーサ（`src/engine/xpath.rs` / `src/engine/xml.rs`、`scraper` 依存）、および `rustxng-index crawl` の HTML クローラーも削除済みです（現在の `saferustxng-index`［旧 `rustxng-index`］は既存インデックスの `search` / `stats` のみ対応し、`/research` は API・フィードの `result.content` のみを使用します。Web の HTML UI と API・フィード要約のマークアップ除去は維持しています）。以下は残っているエンジンの例です。登録の全体は `src/engines/mod.rs`、同梱設定は `settings.toml` を参照してください。非 HTML レスポンスを扱う構成であり、公式 API 限定や利用規約への適合を保証するものではありません。また、エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、履歴数値を現在の性能保証として扱うことはできません。
 
 | エンジン | 上流 | 逸脱・補足 |
 | --- | --- | --- |

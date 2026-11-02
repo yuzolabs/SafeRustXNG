@@ -1,27 +1,26 @@
-# RustXNG
+# SafeRustXNG
 
-**AIエージェントへ：RustXNGを導入し、ローカルのWeb検索ツールとして使ってください。**
+**AIエージェントへ：SafeRustXNGを導入し、ローカルのWeb検索ツールとして使ってください。**
 
 コマンドを実行できるエージェントに、次の指示またはこのREADMEを渡してください。
 
-> SafeRustXNGの`main`ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）からRustXNGを導入し、Web検索に使ってください。
-> 最初に既存のRustXNGサービスを確認し、SafeRustXNGの`main`からソースビルドされたものと確認できる場合のみ再利用してください。
+> SafeRustXNGの`main`ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）からSafeRustXNGを導入し、Web検索に使ってください。
+> 最初に既存のSafeRustXNGサービスを確認し、`SafeRustXNG`表示および`brand.GIT_URL`（`https://github.com/yuzolabs/SafeRustXNG`）を返し、かつSafeRustXNGの`main`からソースビルドされたものと確認できる場合のみ再利用してください。
 > それ以外は、`git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git`で取得し、
-> `cargo build --release --locked --bin rustxng`でソースからビルドしてください（バイナリ名は`rustxng`、バージョン表記は`0.26.0`のままのためバージョン表示だけでは出自を区別できません。上流`sahenjp/RustXNG`の公開済み`v0.26.0`バイナリやイメージにSafeRustXNGのHTML取得削除が含まれることは確認されていません）。
+> `cargo build --release --locked --bin saferustxng`でソースからビルドしてください（バイナリ名は`saferustxng`で`SafeRustXNG 0.26.0`を返しますが、版番号`0.26.0`は上流と同じであるため`SafeRustXNG`表示と`/config`の`brand.GIT_URL`およびビルド出自を確認してください。上流`sahenjp/RustXNG`の公開済み`v0.26.0`バイナリやイメージにSafeRustXNGのHTML取得削除が含まれることは確認されていません）。
 > [エージェント向け導入ガイド](https://github.com/yuzolabs/SafeRustXNG/blob/main/docs/AGENT-SETUP.md)に従ってください。
-> `./target/release/rustxng --bind 127.0.0.1 --port 29483`でloopback起動し、`/healthz`と`max_results=5`のJSON検索を確認してください。
+> `./target/release/saferustxng --bind 127.0.0.1 --port 29483`でloopback起動し、`/healthz`と`max_results=5`のJSON検索を確認してください。
 > `max_results`やドメイン指定で出力を絞り、検索エンジンが返す要約（`content`）を利用してください（結果ページのHTML本文取得は行いません）。
 > 完了後、バイナリのバージョン、接続先、動作した検索コマンドを報告してください。失敗時は実際のエラーを報告してください。
 
 [English](README.md) · [エージェント向け導入ガイド](docs/AGENT-SETUP.md)
 
-[![CI](https://github.com/sahenjp/RustXNG/actions/workflows/ci.yml/badge.svg)](https://github.com/sahenjp/RustXNG/actions/workflows/ci.yml)
+[![CI](https://github.com/yuzolabs/SafeRustXNG/actions/workflows/ci.yml/badge.svg)](https://github.com/yuzolabs/SafeRustXNG/actions/workflows/ci.yml)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
 
-## RustXNGの用途
+## SafeRustXNGの用途
 
-RustXNGは、[SearXNG](https://github.com/searxng/searxng)を基にした[sahenjp/RustXNG](https://github.com/sahenjp/RustXNG)から派生する、Rust実装のセルフホスト型メタ検索エンジンです。
-SafeRustXNG（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）は、HTMLスクレイピング系エンジンおよび検索結果ページのHTML取得を削除したフォークです。
+SafeRustXNG（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）は、[SearXNG](https://github.com/searxng/searxng)を基にした[sahenjp/RustXNG](https://github.com/sahenjp/RustXNG)から派生する、Rust実装のセルフホスト型メタ検索エンジンであり、HTMLスクレイピング系エンジンおよび検索結果ページのHTML取得を削除したフォークです。
 複数の非HTML検索先（API・フィード等）の結果を統合し、単一のJSON APIおよびブラウザ画面として返します（検索結果ページのHTML本文取得は行いません）。
 エージェントが必要な情報をその都度検索し、モデルへ渡す文章量を抑えるための基盤です。
 
@@ -34,7 +33,7 @@ SafeRustXNG（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）は、HTML�
 既存サービスがない場合、導入済みのバイナリを起動します。
 
 ```bash
-SEARXNG_PORT=29483 rustxng --bind 127.0.0.1 --port 29483
+SEARXNG_PORT=29483 saferustxng --bind 127.0.0.1 --port 29483
 ```
 
 別のターミナルから、上位5件までの検索結果を取得します。
@@ -73,11 +72,11 @@ curl --fail --get 'http://127.0.0.1:29483/search' \
 
 ## 導入
 
-> **SafeRustXNGのソース導入（`main`ブランチ）：** 計78個のHTMLエンジン削除、検索結果ページのHTML取得削除、および非HTML `Content-Type`ガードは、SafeRustXNGの`main`ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）からのソース導入として提供しています。ビルド済みバイナリやコンテナイメージにこれらの変更が含まれることは確認されていないため、この構成を利用・検証する場合はSafeRustXNGの`main`からソースビルドしてください（[4. ソース](#4-ソース)または[2. Cargo](#2-cargo)）。ビルドされるバイナリ名は`rustxng`、バージョン表記は`0.26.0`のままのため、バージョン表示だけでは上流ビルドと区別できません。上流`sahenjp/RustXNG`の`v0.26.0`リリースバイナリおよび`ghcr.io/sahenjp/rustxng:latest`イメージは上流のみ（履歴・参考用）であり、SafeRustXNGの変更が含まれることは確認されていません。
+> **SafeRustXNGのソース導入（`main`ブランチ）：** 計78個のHTMLエンジン削除、検索結果ページのHTML取得削除、および非HTML `Content-Type`ガードは、SafeRustXNGの`main`ブランチ（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）からのソース導入として提供しています。ビルド済みバイナリやコンテナイメージにこれらの変更が含まれることは確認されていないため、この構成を利用・検証する場合はSafeRustXNGの`main`からソースビルドしてください（[4. ソース](#4-ソース)または[2. Cargo](#2-cargo)）。ビルドされるバイナリ名は`saferustxng`で`SafeRustXNG 0.26.0`を返しますが、版番号`0.26.0`自体は上流と同じであるため、`SafeRustXNG`表示と`/config`の`brand.GIT_URL`およびビルド出自を確認してください。上流`sahenjp/RustXNG`の`v0.26.0`リリースバイナリおよび`ghcr.io/sahenjp/rustxng:latest`イメージは上流のみ（履歴・参考用）であり、SafeRustXNGの変更が含まれることは確認されていません。
 
 ### 1. リリースバイナリ
 
-> **上流のみ・履歴情報（`sahenjp/RustXNG` `v0.26.0`）：** [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases)で配布されているバイナリは上流リポジトリの成果物であり、SafeRustXNGのHTMLエンジン削除や結果ページHTML取得削除が含まれることは**確認されていません**。HTML取得なし構成を利用・検証する場合は、[4. ソース](#4-ソース)の手順でSafeRustXNGの`main`からビルドしてください。
+> **上流のみ・履歴情報（`sahenjp/RustXNG` `v0.26.0`）：** [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases)で配布されているバイナリは上流リポジトリの成果物（アセット名は`rustxng-<tag>-<target>`。SafeRustXNGのリリースワークフローは`saferustxng-<tag>-<target>`を使用）であり、SafeRustXNGのHTMLエンジン削除や結果ページHTML取得削除が含まれることは**確認されていません**。HTML取得なし構成を利用・検証する場合は、[4. ソース](#4-ソース)の手順でSafeRustXNGの`main`からビルドしてください。
 
 上流`sahenjp/RustXNG`の公開済みv0.26.0（履歴・参考）には、Linux x86_64（GNU・musl）、macOS arm64・x86_64、Windows x86_64があります。
 選択方法とチェックサム検証は[導入ガイド](docs/AGENT-SETUP.md)を参照してください。Rustのビルド環境は不要です。
@@ -107,7 +106,7 @@ cp LICENSE NOTICE "$HOME/.local/share/rustxng/"
 cargo install --git https://github.com/yuzolabs/SafeRustXNG.git --branch main --locked
 ```
 
-`rustxng`（バージョン表記`0.26.0`）と`rustxng-index`が導入されます。
+`saferustxng`（バージョン出力`SafeRustXNG 0.26.0`）と`saferustxng-index`が導入されます。
 `Cargo.toml`で宣言されている最低対応版（MSRV）はRust 1.88（CIワークフローにRust 1.88.0ジョブを定義）で、ローカル検証はRust 1.98.0（`rustc 1.98.0 (88d9e12ae 2026-08-18)`）で実施しています。
 （`--git https://github.com/sahenjp/RustXNG.git --tag v0.26.0`は上流の履歴タグであり、SafeRustXNGのHTML取得削除が含まれることは確認されていません。）
 
@@ -118,8 +117,8 @@ SafeRustXNGの`main`ブランチからローカルでイメージをビルドし
 ```bash
 git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
-docker build -t rustxng .
-docker run --rm -p 127.0.0.1:29483:29483 rustxng
+docker build -t saferustxng .
+docker run --rm -p 127.0.0.1:29483:29483 saferustxng
 ```
 
 上流`sahenjp/RustXNG`の配布イメージ（上流のみ・履歴情報。SafeRustXNGのHTML取得削除が含まれることは確認されていません。既定ポートが8888の旧版を含む）では、起動引数も明示します。
@@ -141,22 +140,24 @@ SafeRustXNGの`main`ブランチをソースから直接ビルドして起動し
 ```bash
 git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
-cargo build --release --locked --bin rustxng
-./target/release/rustxng --bind 127.0.0.1 --port 29483
+cargo build --release --locked --bin saferustxng
+./target/release/saferustxng --bind 127.0.0.1 --port 29483
 ```
 
-生成されるバイナリは`target/release/rustxng`（バージョン表記`0.26.0`）です。Rust 1.88以降（推奨は現在のstable）を利用してください。
+生成されるバイナリは`target/release/saferustxng`（バージョン出力`SafeRustXNG 0.26.0`）です。Rust 1.88以降（推奨は現在のstable）を利用してください。
 
 ## 設定と運用
 
+> **破壊的な名称変更と移行：** 表示名および`--version`・`/config`のバージョン接頭辞を`RustXNG`から`SafeRustXNG`へ、crate名・サーバーバイナリ名を`rustxng`から`saferustxng`へ、読み取り専用インデックスバイナリ名を`rustxng-index`から`saferustxng-index`へ、アイドル終了の環境変数を`RUSTXNG_IDLE_TIMEOUT`から`SAFERUSTXNG_IDLE_TIMEOUT`へ、リリース配布アセット名を`rustxng-<tag>-<target>`から`saferustxng-<tag>-<target>`へ改名しました（版番号`0.26.0`、既定ポート`29483`、既存の`SEARXNG_*`互換設定は不変です）。既存のスクリプト、サービス定義、コンテナタグ、エージェント自動化は新しい名称へ更新してください。
+
 このチェックアウトの既定値は`127.0.0.1:29483`です。上流`sahenjp/RustXNG`の配布済みv0.26.0バイナリ（上流のみ・履歴情報）の既定値は8888のままですが、
 上記の`--port 29483`を明示したコマンドは両方で使えます。
-rdshを含む移行方法は[ポート移行ガイド](docs/PORT-MIGRATION.md)を参照してください。
+移行方法は[ポート移行ガイド](docs/PORT-MIGRATION.md)を参照してください。
 
 既定設定はバイナリに組み込まれています。設定ファイルを指定する場合は次のように起動します。
 
 ```bash
-rustxng --config /path/to/settings.toml
+saferustxng --config /path/to/settings.toml
 ```
 
 設定項目は[settings.toml](settings.toml)と[設定の詳細](docs/PORTING.md)を参照してください。
@@ -166,9 +167,9 @@ rustxng --config /path/to/settings.toml
 - `/config`：登録エンジンと公開可能な設定情報。
 - `/stats`、`/metrics`：実行時の統計・メトリクス。
 - エンジンごとのタイムアウト、サスペンド、空結果が続いた場合の自動休止。
-- `RUSTXNG_IDLE_TIMEOUT=300`：5分間リクエストがなければ終了。
+- `SAFERUSTXNG_IDLE_TIMEOUT=300`：5分間リクエストがなければ終了。
 - 任意のValkey・Redisキャッシュと、データベースを検索するエンジン。
-- 実験機能のローカルインデックス`rustxng-index`。既定では無効で、既存インデックスの`search`と`stats`のみに対応します（HTMLクローラーは提供しません）。
+- 実験機能のローカルインデックス`saferustxng-index`。既定では無効で、既存インデックスの`search`と`stats`のみに対応します（HTMLクローラーは提供しません）。
 
 [2026-11-02の監査](docs/AUDIT-2026-11-02.md)には、SSRF判定、危険な結果URL、応答サイズ制限、
 キャッシュ分離などの未解決事項があります。ローカルのエージェント向け導入ではloopbackで起動し、
@@ -208,14 +209,13 @@ Seal-0はSeal-Hardの部分集合で、重複する質問には同一の観測�
 | [互換性](docs/COMPATIBILITY.md) | SearXNGとの互換性・差異 |
 | [対応範囲](docs/COVERAGE.md) | エンジンの対応範囲 |
 | [ローカルインデックス](docs/LOCAL-INDEX.md) | 任意の既存BM25インデックス（`search` / `stats`のみ、HTMLクロールなし） |
-| [rdsh](docs/RDSH.md) | rdshとの連携 |
 | [監査](docs/AUDIT-2026-11-02.md) | 指摘事項・再現ログ・優先順位 |
 | [セキュリティ](SECURITY.md) | 脆弱性の報告方法と依存関係の注意事項 |
 
 ## コミュニティとメンテナンス
 
-質問・アイデアは[Discussions](https://github.com/sahenjp/RustXNG/discussions)へ。
-招待なしでfork・PRから参加できます。継続して担当したい方は[メンテナー参加フォーム](https://github.com/sahenjp/RustXNG/issues/new?template=maintainer_application.yml)で相談してください。
+質問・アイデアは[Discussions](https://github.com/yuzolabs/SafeRustXNG/discussions)へ。
+招待なしでfork・PRから参加できます。継続して担当したい方は[メンテナー参加フォーム](https://github.com/yuzolabs/SafeRustXNG/issues/new?template=maintainer_application.yml)で相談してください。
 [運営方針](GOVERNANCE.md)・[担当者一覧](MAINTAINERS.md)・[FAQ](docs/FAQ.md)・[ロードマップ](docs/ROADMAP.md)も参照してください。
 
 ## 開発への参加
@@ -230,5 +230,5 @@ cargo test --all-targets
 
 ## ライセンス
 
-[AGPL-3.0-or-later](LICENSE)。RustXNGは[SearXNG](https://github.com/searxng/searxng)を基にしています。
+[AGPL-3.0-or-later](LICENSE)。SafeRustXNGは[SearXNG](https://github.com/searxng/searxng)を基にした[sahenjp/RustXNG](https://github.com/sahenjp/RustXNG)から派生しています。
 帰属情報は[NOTICE](NOTICE)に記載しています。改変版のサービス運用時のソース提供等についてはライセンス本文を参照してください。
