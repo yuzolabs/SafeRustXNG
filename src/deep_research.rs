@@ -75,11 +75,19 @@ impl LLMClient {
         let response = self
             .client
             .post(format!("{}/chat/completions", self.base_url))
+            .header(reqwest::header::ACCEPT, "application/json")
             .bearer_auth(&self.api_key)
             .json(&body)
             .send()
             .await
             .map_err(|error| format!("llm request: {error}"))?;
+        crate::network::validate_machine_content_type(
+            response
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+        )
+        .map_err(|error| error.to_string())?;
         let status = response.status();
         let payload: serde_json::Value = response
             .json()

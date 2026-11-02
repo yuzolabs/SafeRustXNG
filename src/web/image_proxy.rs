@@ -137,7 +137,7 @@ pub async fn handler(
         return (StatusCode::FORBIDDEN, "the URL is not a public http(s) URL").into_response();
     }
 
-    let mut request = EngineRequest::get(params.url.clone());
+    let mut request = EngineRequest::get(params.url.clone()).header("Accept", "image/*");
     if let Some(referer) = headers
         .get(header::REFERER)
         .and_then(|value| value.to_str().ok())

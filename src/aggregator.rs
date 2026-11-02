@@ -804,10 +804,18 @@ impl Searcher {
             .map_err(|error| error.to_string())?;
         let response = client
             .post(&url)
+            .header(reqwest::header::ACCEPT, "application/json")
             .json(&body)
             .send()
             .await
             .map_err(|error| error.to_string())?;
+        crate::network::validate_machine_content_type(
+            response
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok()),
+        )
+        .map_err(|error| error.to_string())?;
         let status = response.status();
         let payload: serde_json::Value =
             response.json().await.map_err(|error| error.to_string())?;

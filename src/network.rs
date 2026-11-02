@@ -39,6 +39,8 @@ pub enum NetworkError {
     Transport(String),
     #[error("request could not be built: {0}")]
     Build(String),
+    #[error("machine response required: unsupported Content-Type {0}")]
+    UnsupportedContentType(String),
 }
 
 impl NetworkError {
@@ -48,8 +50,45 @@ impl NetworkError {
             Self::Timeout => FailureKind::Timeout,
             Self::Build(_) => FailureKind::Other,
             Self::Transport(_) => FailureKind::Other,
+            Self::UnsupportedContentType(_) => FailureKind::Parse,
             Self::Status { status, body, .. } => classify_status(*status, body),
         }
+    }
+}
+
+/// Validate a machine response Content-Type before reading any response body.
+/// Missing types and HTML/XHTML are rejected; API, feed, text and image types remain supported.
+pub fn validate_machine_content_type(content_type: Option<&str>) -> Result<(), NetworkError> {
+    let media_type = content_type
+        .unwrap_or_default()
+        .split(';')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
+    let supported = media_type != "application/xhtml+xml"
+        && (matches!(
+            media_type.as_str(),
+            "application/json"
+                | "text/json"
+                | "application/xml"
+                | "text/xml"
+                | "text/plain"
+                | "text/event-stream"
+                | "application/javascript"
+                | "text/javascript"
+                | "application/x-javascript"
+                | "application/x-ndjson"
+                | "application/json-seq"
+        ) || media_type.ends_with("+json")
+            || media_type.ends_with("+xml")
+            || media_type.starts_with("image/"));
+    if supported {
+        Ok(())
+    } else {
+        Err(NetworkError::UnsupportedContentType(
+            content_type.unwrap_or("<missing>").to_string(),
+        ))
     }
 }
 
@@ -195,7 +234,7 @@ impl Network {
         headers.insert(
             reqwest::header::ACCEPT,
             HeaderValue::from_static(
-                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "application/json,application/xml,text/xml,application/rss+xml,application/atom+xml,text/plain,text/event-stream,application/javascript",
             ),
         );
         headers.insert(
@@ -238,6 +277,9 @@ impl Network {
         let cache_key = Cache::key(method, &request.url, &body_repr);
         if let Some(cache) = cache {
             if let Some(cached) = cache.get(&cache_key).await {
+                validate_machine_content_type(
+                    cached.headers.get("content-type").map(String::as_str),
+                )?;
                 debug!(url = %request.url, "cache hit");
                 return Ok(EngineResponse {
                     status: cached.status,
@@ -328,6 +370,27 @@ impl Network {
         for (name, value) in request.headers.iter() {
             headers.insert(name.clone(), value.clone());
         }
+        if headers
+            .get(reqwest::header::ACCEPT)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|accept| {
+                accept.split(',').any(|item| {
+                    matches!(
+                        item.split(';')
+                            .next()
+                            .unwrap_or_default()
+                            .trim()
+                            .to_ascii_lowercase()
+                            .as_str(),
+                        "text/html" | "application/xhtml+xml"
+                    )
+                })
+            })
+        {
+            return Err(NetworkError::Build(
+                "HTML requests are not supported".into(),
+            ));
+        }
         if !request.cookies.is_empty() {
             let cookie = request
                 .cookies
@@ -355,6 +418,12 @@ impl Network {
                     NetworkError::Transport(error.to_string())
                 }
             })?;
+            validate_machine_content_type(
+                response
+                    .headers()
+                    .get(reqwest::header::CONTENT_TYPE)
+                    .and_then(|value| value.to_str().ok()),
+            )?;
             let status = response.status().as_u16();
             let final_url = response.url().to_string();
             let mut headers = BTreeMap::new();
@@ -389,7 +458,7 @@ fn is_retryable(error: &NetworkError) -> bool {
         // a timeout already consumed the whole engine budget
         NetworkError::Timeout => false,
         NetworkError::Status { status, .. } => *status == 429 || *status >= 500,
-        NetworkError::Build(_) => false,
+        NetworkError::Build(_) | NetworkError::UnsupportedContentType(_) => false,
     }
 }
 

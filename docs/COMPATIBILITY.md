@@ -44,6 +44,8 @@ SearXNG のパラメータと衝突しない名前で、LLM のツール呼び�
 
 応答自体の検証も行います。パースは通るが内容が明らかに架空・プレースホルダ・クエリと無関係な応答（上流 issue #6358 の「静かなゴミ混入」）は、結果に混ぜずにエンジンをサスペンドし、`unresponsive_engines` に `Suspicious response` として出します。
 
+**ネットワーク層の非 HTML ガード（`src/network.rs`）**: `Network::send` と `validate_machine_content_type` はレスポンス本文を読み取る前に `Content-Type` を検証し、MIME 未指定・`text/html`・`application/xhtml+xml`・未対応型をフェイルクローズで拒否します（キャッシュヒット時も同様に再検証）。許可されるのは JSON/`+json`、`application/xhtml+xml` を除く XML/`+xml`、指定のプレーンテキスト・JavaScript・NDJSON・SSE、および `image/*`（画像プロキシは `Accept: image/*` を明示）で、`text/html` や `application/xhtml+xml` を明示要求するカスタム `Accept` ヘッダーも送信前に拒否します。`src/engines/pubmed.rs`、`src/aggregator.rs`（embeddings）、`src/deep_research.rs`（LLM）の独立した `reqwest` クライアントも本文消費前に同じ検証を呼びますが、これは `Content-Type` ヘッダーに基づく機械判定であり、偽装された MIME の完全な防止や利用規約（ToS）・公式 API 限定を保証するものではありません。
+
 ### ディープリサーチ（`GET /research`、上流にない）
 
 質問を受け取り、(1) サブクエリを計画（LLM があれば LLM、無ければ質問から派生）、(2) 各サブクエリを検索してエンジン（API・フィード）が返した `content`（要約）を収集・URL 重複排除（結果先 URL の HTML ページ取得は一切行いません）、(3) LLM があれば引用付き markdown レポートを生成して返します。LLM 未設定でも証拠バンドル（`queries` / `sources`）は返ります。設定は `settings.toml` の `[research]`（`enabled` / `base_url` / `api_key` / `model` / `max_queries` / `max_sources`）。
