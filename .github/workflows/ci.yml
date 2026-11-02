@@ -34,6 +34,11 @@ jobs:
         run: cargo test --all-targets
       - name: Build the server binary
         run: cargo build --locked --bin rustxng
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python tool unit tests (offline)
+        run: python -m unittest discover -s tools -p "test_*.py"
       - name: Agent setup smoke test (offline)
         # The script resolves the .exe suffix on Windows.
         run: python tools/smoke_agent_setup.py --binary target/debug/rustxng
