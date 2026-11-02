@@ -1,12 +1,14 @@
-# 全エンジン移植の状況（カバレッジ）
+# エンジン移植の状況（カバレッジ）
 
-SearXNG の `settings.yml` にある **352 エントリ / 226 エンジン型**をすべて移植しました。数値は `tools/coverage.py` で再計測できます。
+現在は、人向け HTML ページを取得・解析する検索エンジンを削除しています。HTML 内の埋め込み JSON を抽出する実装も対象です。汎用 `xpath` エンジンは XML 用も含めて削除しましたが、arXiv・RSS・API など非 HTML レスポンスを扱うエンジンは残しています。公式 API のみの構成や、利用規約への適合を保証するものではありません。この変更では、検索結果の本文取得・クローラーはまだ削除していません。
+
+現在の登録は `src/engines/mod.rs`、同梱設定は `settings.toml` を参照してください。以下の数値は削除前の記録であり、現在の対応数やテスト数ではありません。上流との比較は `tools/coverage.py` で再計測できます。
 
 ```bash
 python3 tools/coverage.py /path/to/searxng settings.toml
 ```
 
-## 現在の数値
+## 削除前の数値（履歴）
 
 | 指標 | 値 |
 | --- | ---: |
@@ -20,13 +22,15 @@ python3 tools/coverage.py /path/to/searxng settings.toml
 
 ## 移植を支える仕組み
 
-1. **宣言的エンジン**（`engine: xpath` / `json_engine` / `mediawiki`）で上流 `settings.yml` の定義をそのまま取り込めます。
+1. **宣言的エンジン**（`engine: json_engine` / `mediawiki`）で上流 `settings.yml` の定義をそのまま取り込めます。
 2. **コードエンジン**は 1 エンジン 1 ファイル（`src/engines/<name>.rs`）。すべてに外部ネットワーク不要のフィクスチャテストを付けています。
 3. **外部 bang の全量移植**: 上流の圧縮トライ（13,561 件）を平坦化。
 4. **登録の自動化**: `tools/register_engines.py` が `// engine-id:` 行を読み、`mod.rs` の宣言・ディスパッチと `settings.toml` のエントリを同期します。
 5. **壊れたエンジンは起動時にスキップ**: 上流と同じく、初期化に失敗したエンジンは警告を出して除外し、残りで検索を続けます。
 
-## エンジン型の内訳
+## 削除前のエンジン型の内訳（履歴）
+
+次の表は過去の分類・状態を保存したもので、現在利用できるエンジンの一覧ではありません。
 
 | 分類 | 数 | 状態 |
 | --- | ---: | --- |
@@ -43,13 +47,13 @@ python3 tools/coverage.py /path/to/searxng settings.toml
 
 上流と同じく、次は認証情報や自前インスタンスの設定が必要なため `disabled = true` にしています。
 
-- API キー: `braveapi`, `google_cse`, `kagi`, `exaapi`, `wolframalpha_api`, `springer`, `flickr`, `youtube_api`, `giphy`, `soundcloud`, `marginalia`, `jina`, `ollama`, `spotify` など
-- 自前インスタンス: `lemmy`, `mastodon`, `invidious`, `piped`, `peertube`, `sepiasearch`, `discourse`, `torznab`, `annas_archive`, `yacy`, `zlibrary`, `searx 系`
+- API キー: `braveapi`, `google_cse`, `kagi`, `exaapi`, `wolframalpha_api`, `springer`, `flickr`, `youtube_api`, `giphy`, `soundcloud`, `marginalia`, `jina`, `spotify` など
+- 自前インスタンス: `lemmy`, `mastodon`, `invidious`, `piped`, `peertube`, `sepiasearch`, `discourse`, `torznab`, `yacy`
 - 翻訳系: `deepl`, `libretranslate`, `lingva`, `mozhi`, `translated`
 
 ## 移植時の意図的な差分
 
-- **2 リクエスト必要なエンジン**（PubMed の esearch→efetch、Open-Meteo のジオコーディング、Ahmia のトークン取得など）は、単一リクエストで取得できる代替エンドポイントを使うか、トークン等を設定値から受け取ります。各ファイル冒頭に明記しています。
+- **2 リクエスト必要なエンジン**（PubMed の esearch→efetch、Open-Meteo のジオコーディングなど）は、単一リクエストで取得できる代替エンドポイントを使うか、トークン等を設定値から受け取ります。各ファイル冒頭に明記しています。
 - **JavaScript 実行が必要なページ**は対象外、または JSON エンドポイントに切り替えています。
 - **アシスタント型エンジン**（`calculator` など）はプラグイン / アンサーラーとして実装しています。
 - **天気・通貨・翻訳**は answerer / engine のどちらでも扱えるよう、アンサーラーと engine の両方を用意しています。

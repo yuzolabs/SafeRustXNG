@@ -63,6 +63,14 @@ def main():
     if no_id:
         print("[no engine id, skipped]", ", ".join(no_id))
 
+    # Remove registrations whose implementation was deleted before adding engines.
+    valid = {e["module"] for e in with_id}
+    mod = re.sub(
+        r"(?m)^pub mod (\w+);\n",
+        lambda match: match.group(0) if match.group(1) in valid else "",
+        mod,
+    )
+
     # 1. declarations: keep the existing block, append missing modules
     add = [e["module"] for e in with_id if e["module"] not in declared]
     if add:
@@ -72,7 +80,6 @@ def main():
         )
 
     # 2. dispatch arms: drop arms whose module file is gone, add missing new ones
-    valid = {e["module"] for e in with_id}
     kept = []
     for line in mod.split("\n"):
         m = re.match(r'^(\s+)"[^"]+" => \w+::\w+::from_config\(config\)\?,\s*$', line)
@@ -95,6 +102,14 @@ def main():
 
     # 3. settings.toml entries
     settings = open(SETTINGS, encoding="utf-8").read()
+    valid_engine_ids = {e["engine_id"] for e in with_id}
+    sections = re.split(r"(?m)(?=^\[\[engines\]\])", settings)
+    settings = sections[0] + "".join(
+        section
+        for section in sections[1:]
+        if re.search(r'^engine = "([^"]+)"', section, flags=re.M).group(1)
+        in valid_engine_ids
+    )
     have_names = set(re.findall(r'^name = "([^"]+)"', settings, flags=re.M))
     have_shortcuts = set(re.findall(r'^shortcut = "([^"]+)"', settings, flags=re.M))
     have_engine = set(re.findall(r'^engine = "([^"]+)"', settings, flags=re.M))
@@ -117,7 +132,7 @@ def main():
         have_names.add(e["module"])
     if blocks:
         settings = settings.rstrip("\n") + "\n\n" + "\n\n".join(blocks) + "\n"
-        open(SETTINGS, "w", encoding="utf-8").write(settings)
+    open(SETTINGS, "w", encoding="utf-8").write(settings)
     print("settings entries added:", len(blocks))
 
 
