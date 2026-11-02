@@ -11,9 +11,9 @@ use axum::routing::get;
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
-use rustxng::aggregator::Searcher;
-use rustxng::settings::{EngineConfig, LimiterSettings, Settings};
-use rustxng::web::{AppState, router};
+use saferustxng::aggregator::Searcher;
+use saferustxng::settings::{EngineConfig, LimiterSettings, Settings};
+use saferustxng::web::{AppState, router};
 
 /// The JSON payload the fake Mwmbl engine answers with.
 const MWMBL_RESPONSE: &str = r#"[
@@ -80,7 +80,7 @@ async fn get_uri(app: &Router, uri: &str) -> (StatusCode, String, axum::http::He
 
 #[tokio::test]
 async fn image_and_favicon_proxies_sandbox_svg_without_changing_image_bytes() {
-    use rustxng::web::image_proxy::signature;
+    use saferustxng::web::image_proxy::signature;
 
     for (content_type, payload) in [
         (
@@ -111,7 +111,7 @@ async fn image_and_favicon_proxies_sandbox_svg_without_changing_image_bytes() {
         ] {
             let uri = format!(
                 "/{path}?url={}&h={}",
-                rustxng::engine::util::encode(url),
+                saferustxng::engine::util::encode(url),
                 signature("test", url),
             );
             let (status, body, headers) = get_uri(&app, &uri).await;
@@ -283,7 +283,7 @@ async fn research_returns_evidence_without_an_llm() {
 async fn staged_strategy_returns_the_same_results() {
     let base_url = start_fake_engine().await;
     let mut settings = settings_for(&base_url);
-    settings.search.strategy = rustxng::settings::SearchStrategy::Staged;
+    settings.search.strategy = saferustxng::settings::SearchStrategy::Staged;
     settings.search.staged_tier = 1;
     settings.search.staged_min_results = 1;
     let app = app(settings);
@@ -330,6 +330,10 @@ async fn csv_and_rss_formats_are_served() {
             .unwrap()
             .starts_with("application/csv")
     );
+    assert_eq!(
+        headers[header::CONTENT_DISPOSITION],
+        "attachment;Filename=saferustxng-rust.csv"
+    );
     assert!(body.starts_with("title,url,content,host,engine,score,type"));
     assert!(body.contains("The Rust Programming Language"));
 
@@ -361,10 +365,17 @@ async fn static_pages_and_metadata_are_served() {
     let json: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(json["engines"][0]["name"], "mwmbl");
     assert_eq!(json["engines"][0]["shortcut"], "mwm");
+    assert_eq!(json["instance_name"], "SafeRustXNG");
+    assert_eq!(json["version"], saferustxng::version::version_string());
+    assert_eq!(
+        json["brand"]["GIT_URL"],
+        "https://github.com/yuzolabs/SafeRustXNG"
+    );
 
     let (status, body, _) = get_uri(&app, "/opensearch.xml").await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("<OpenSearchDescription"));
+    assert!(body.contains("<ShortName>SafeRustXNG</ShortName>"));
     assert!(body.contains("/search?q={searchTerms}"));
 
     let (status, _, _) = get_uri(&app, "/static/style.css").await;
@@ -373,6 +384,8 @@ async fn static_pages_and_metadata_are_served() {
     let (status, body, _) = get_uri(&app, "/about").await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("AGPL-3.0-or-later"));
+    assert!(body.contains("<title>About — SafeRustXNG</title>"));
+    assert!(body.contains("SafeRustXNG is based on SearXNG"));
 
     let (status, body, _) = get_uri(&app, "/stats").await;
     assert_eq!(status, StatusCode::OK);
@@ -544,7 +557,7 @@ async fn image_proxy_refuses_unsigned_and_private_urls() {
     // A correctly signed private address is still refused (SSRF guard), which
     // is stricter than upstream.
     let url = "http://127.0.0.1:9/secret";
-    let signature = rustxng::web::image_proxy::signature("test-secret", url);
+    let signature = saferustxng::web::image_proxy::signature("test-secret", url);
     let uri = format!(
         "/image_proxy?url={}&h={signature}",
         url.replace(':', "%3A").replace('/', "%2F")

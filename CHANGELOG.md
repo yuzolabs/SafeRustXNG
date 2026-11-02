@@ -7,7 +7,7 @@
 ### Removed
 
 - Removed 78 HTML-scraping engines (including the generic `xpath` engine), result-page HTML body fetching (`include_raw_content` processing, `raw_content` result fields, and `search.raw_content_limit` / `search.raw_content_chars` settings), and the `rustxng-index crawl` HTML crawler; legacy `include_raw_content` query parameters are ignored without network requests to result URLs, and `/research` summarizes upstream engine `content` snippets only.
-- Removed `LocalIndex::open_for_write`, `LocalIndex::add`, `LocalIndex::commit`, `LocalIndex::has_url`, and the `Page` write API; `LocalIndex` and `rustxng-index` now support read-only `search` and `stats` over existing compatible indexes only and do not create or repair missing, empty, or corrupted indexes.
+- Removed `LocalIndex::open_for_write`, `LocalIndex::add`, `LocalIndex::commit`, `LocalIndex::has_url`, and the `Page` write API; `LocalIndex` and `saferustxng-index` (formerly `rustxng-index`) now support read-only `search` and `stats` over existing compatible indexes only and do not create or repair missing, empty, or corrupted indexes.
 - Removed the upstream-specific community setup record in `docs/COMMUNITY-SETUP.md`, which did not describe this fork's repository settings.
 
 ### Security
@@ -28,11 +28,12 @@
 - Default HTTP port changes from 8888 to 29483 across settings, Docker and CI. Explicit `--port`, `SEARXNG_PORT` and configuration overrides remain supported. See [migration notes](docs/PORT-MIGRATION.md).
 - English and Japanese READMEs now start with agent setup instructions, distinguish current functionality from future work, and link to measured SealQA retrieval results and the audit.
 - Docker examples and smoke tests publish on loopback by default. Older published images use an explicit server port in the examples.
-- Source installation documentation targets the SafeRustXNG `main` branch (`https://github.com/yuzolabs/SafeRustXNG/tree/main`) while keeping these changes under `[Unreleased]` with binary name `rustxng` and version `0.26.0` unchanged (unverified against upstream `sahenjp/RustXNG` `v0.26.0` release binaries and images).
+- Source installation documentation targets the SafeRustXNG `main` branch (`https://github.com/yuzolabs/SafeRustXNG/tree/main`) at version `0.26.0`; upstream `sahenjp/RustXNG` `v0.26.0` release binaries and images are not verified to include this fork's changes.
 - `/config` brand URLs (`GIT_URL`, `DOCS_URL`, `ISSUE_URL`, `NEW_ISSUE_URL`) and the Marginalia engine User-Agent now point at `https://github.com/yuzolabs/SafeRustXNG`; `tools/smoke_agent_setup.py` expects the new `brand.GIT_URL`. Upstream `sahenjp/RustXNG` `v0.26.0` binaries keep reporting the upstream URLs.
 - `Cargo.toml` `repository` and the GHCR publish target now point at this repository; the workflow publishes `ghcr.io/yuzolabs/saferustxng` (the upstream `ghcr.io/sahenjp/rustxng` image remains an upstream-only/historical artifact).
 - Community, security, and governance references (README badges and links, CONTRIBUTING, CODE_OF_CONDUCT conduct-contact, SECURITY, GOVERNANCE, MAINTAINERS, issue-template contact links, CODEOWNERS, and `.github/repository-settings` operator commands including the release-tag ruleset bypass actor) now address `yuzolabs/SafeRustXNG`; the repository owner is recorded as `@yuzolabs`.
 - Recorded this repository's release-tag protection settings and updated the owner instructions for inspecting and updating the existing ruleset.
+- **Breaking rename to SafeRustXNG:** Renamed the project display name, default `instance_name`, and `--version` / `/config` version prefix from `RustXNG` to `SafeRustXNG` (`SafeRustXNG 0.26.0`), the crate and server binary from `rustxng` to `saferustxng`, the read-only local-index binary from `rustxng-index` to `saferustxng-index`, the idle-timeout environment variable from `RUSTXNG_IDLE_TIMEOUT` to `SAFERUSTXNG_IDLE_TIMEOUT`, and release asset names from `rustxng-<tag>-<target>` to `saferustxng-<tag>-<target>` (with version `0.26.0`, default port `29483`, and `SEARXNG_*` environment variables unchanged). Update existing scripts, service definitions, container tags, and agent automation to use the new names.
 
 ## [0.26.0] - 2026-11-01
 

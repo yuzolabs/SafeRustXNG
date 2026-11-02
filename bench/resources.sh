@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Measure startup time, warm search latency and resident memory of one instance.
 #
-#   bash bench/resources.sh rustxng http://127.0.0.1:8899
+#   bash bench/resources.sh saferustxng http://127.0.0.1:8899
 #   bash bench/resources.sh granian      http://127.0.0.1:8001
 #
 # The SearXNG side needs the checkout at /tmp/searxng-ref, the virtualenv at
@@ -13,10 +13,10 @@ NAME="$1"
 BASE="$2"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-if [ "$NAME" = "rustxng" ]; then
-  kill_all() { pkill -x rustxng 2>/dev/null || true; }
-  alive() { pgrep -x rustxng >/dev/null 2>&1; }
-  list_pids() { pgrep -x rustxng; }
+if [ "$NAME" = "saferustxng" ]; then
+  kill_all() { pkill -x saferustxng 2>/dev/null || true; }
+  alive() { pgrep -x saferustxng >/dev/null 2>&1; }
+  list_pids() { pgrep -x saferustxng; }
 else
   kill_all() { pkill -f "granian wsgi" 2>/dev/null || true; }
   alive() { pgrep -f "granian wsgi" >/dev/null 2>&1; }
@@ -30,8 +30,8 @@ for _ in $(seq 1 200); do
 done
 
 START="$(date +%s.%N)"
-if [ "$NAME" = "rustxng" ]; then
-  (cd "$ROOT" && exec ./target/release/rustxng --port 8899) >/tmp/bench-start.log 2>&1 &
+if [ "$NAME" = "saferustxng" ]; then
+  (cd "$ROOT" && exec ./target/release/saferustxng --port 8899) >/tmp/bench-start.log 2>&1 &
 else
   (cd /tmp/searxng-ref && SEARXNG_SETTINGS_PATH=/tmp/sxng-bench-settings.yml \
     exec /tmp/sxng-venv/bin/granian --interface wsgi --host 127.0.0.1 --port 8001 searx.webapp:app) \

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """OpenAI-compatible local embedding server (fastembed + onnx).
 
-RustXNG calls POST {embedding_url}/v1/embeddings to re-rank results
+SafeRustXNG calls POST {embedding_url}/v1/embeddings to re-rank results
 semantically, matching neural search engines like Exa without a cloud key.
 
     python3 tools/embed_server.py --port 18998

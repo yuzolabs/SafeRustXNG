@@ -1,10 +1,10 @@
-# rustxng settings — the format mirrors SearXNG's `settings.yml`.
+# SafeRustXNG settings — the format mirrors SearXNG's `settings.yml`.
 # Everything here can be overridden by a user file passed with `--config` or
 # `SEARXNG_SETTINGS_PATH`. See README.md and docs/PORTING.md.
 
 [general]
 debug = false
-instance_name = "RustXNG"
+instance_name = "SafeRustXNG"
 contact_url = ""
 enable_metrics = true
 
@@ -13,7 +13,7 @@ bind_address = "127.0.0.1"
 port = 29483
 # リクエストが無いままこの秒数が過ぎたら終了する（0 で無効）。
 # rdsh などが起動するサイドカーが残り続けるのを防ぐ用途。
-# 環境変数 RUSTXNG_IDLE_TIMEOUT でも指定できる。
+# 環境変数 SAFERUSTXNG_IDLE_TIMEOUT でも指定できる。
 idle_timeout = 0
 secret_key = "ultrasecretkey"
 # The limiter is a simplified per-client rate limit (upstream uses botdetection).
@@ -30,7 +30,7 @@ autocomplete = "duckduckgo"
 autocomplete_min = 4
 default_lang = "auto"
 # --- 実験機能（既定オフ）---
-# 自前の BM25 インデックス（rustxng-index で構築）。空なら無効。
+# 既存の BM25 インデックス（saferustxng-index で検索）。空なら無効。
 # 有効にするとローカルのヒットが上流の結果に足され、精度が上がる代わりに
 # 既存インデックスを指定する。HTML クローラーは提供しない。
 local_index_path = ""

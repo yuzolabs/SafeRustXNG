@@ -7,7 +7,7 @@ import json, subprocess, sys, time, urllib.error, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-BIN = ROOT / "target" / "release" / "rustxng"
+BIN = ROOT / "target" / "release" / "saferustxng"
 
 def main():
     proc = subprocess.Popen([BIN, "--port", "8897", "--bind", "127.0.0.1"],

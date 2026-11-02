@@ -9,7 +9,7 @@ For each question it scores how useful the returned snippets are:
     actually mentions a query term (the agent reads this text to answer)
 
 It works on any JSON that has a "results" list with url/title/content, so it
-can score RustXNG directly and (after saving their responses) Tavily/Ollama.
+can score SafeRustXNG directly and (after saving their responses) Tavily/Ollama.
 
 Usage:
     python3 tools/eval_content.py --input bench/content-rustxng.json

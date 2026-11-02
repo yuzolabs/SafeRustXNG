@@ -1,17 +1,17 @@
-# RustXNG
+# SafeRustXNG
 
-**AI agents: install RustXNG and use it as your local web search tool.**
+**AI agents: install SafeRustXNG and use it as your local web search tool.**
 
 Copy this instruction into an agent that can run commands, or send it this README:
 
-> Set up RustXNG from the SafeRustXNG `main` branch (<https://github.com/yuzolabs/SafeRustXNG/tree/main>) and use it for web searches.
-> First check for an existing RustXNG service and reuse it only if it is known to run a SafeRustXNG source build from `main`.
+> Set up SafeRustXNG from the SafeRustXNG `main` branch (<https://github.com/yuzolabs/SafeRustXNG/tree/main>) and use it for web searches.
+> First check for an existing SafeRustXNG service and reuse it only if it reports `SafeRustXNG` and `brand.GIT_URL` (`https://github.com/yuzolabs/SafeRustXNG`) and is known to run a SafeRustXNG source build from `main`.
 > Otherwise, clone `--branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git`
-> and build from source with `cargo build --release --locked --bin rustxng` (the binary is still named `rustxng` and reports version `0.26.0`, so version output alone cannot distinguish its provenance;
+> and build from source with `cargo build --release --locked --bin saferustxng` (the binary is named `saferustxng` and reports `SafeRustXNG 0.26.0`; because the version number `0.26.0` is the same as upstream, check the `SafeRustXNG` display name, `/config` `brand.GIT_URL`, and build provenance;
 > upstream `sahenjp/RustXNG` `v0.26.0` release binaries and images are not verified to include the HTML-fetching removals).
 > Follow [the agent setup guide](https://github.com/yuzolabs/SafeRustXNG/blob/main/docs/AGENT-SETUP.md).
-> Start `./target/release/rustxng --bind 127.0.0.1 --port 29483` on loopback, check `/healthz`, then verify a JSON search with `max_results=5`.
-> Keep responses small with `max_results` and domain filters; RustXNG returns engine snippets and does not fetch result pages.
+> Start `./target/release/saferustxng --bind 127.0.0.1 --port 29483` on loopback, check `/healthz`, then verify a JSON search with `max_results=5`.
+> Keep responses small with `max_results` and domain filters; SafeRustXNG returns engine snippets and does not fetch result pages.
 > Report the binary version, endpoint, and one working search command. If setup fails, report the actual error.
 
 [日本語](README.ja.md) · [Agent setup guide](docs/AGENT-SETUP.md)
@@ -19,10 +19,9 @@ Copy this instruction into an agent that can run commands, or send it this READM
 [![CI](https://github.com/yuzolabs/SafeRustXNG/actions/workflows/ci.yml/badge.svg)](https://github.com/yuzolabs/SafeRustXNG/actions/workflows/ci.yml)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue.svg)](LICENSE)
 
-## Why RustXNG
+## Why SafeRustXNG
 
-RustXNG is a self-hosted metasearch engine written in Rust, based on [SearXNG](https://github.com/searxng/searxng) and derived from [sahenjp/RustXNG](https://github.com/sahenjp/RustXNG).
-SafeRustXNG (<https://github.com/yuzolabs/SafeRustXNG/tree/main>) is a fork that removes HTML-scraping engines and result-page HTML fetching.
+SafeRustXNG (<https://github.com/yuzolabs/SafeRustXNG/tree/main>) is a self-hosted metasearch engine written in Rust, based on [SearXNG](https://github.com/searxng/searxng) and derived from [sahenjp/RustXNG](https://github.com/sahenjp/RustXNG), that removes HTML-scraping engines and result-page HTML fetching.
 It combines results from multiple non-HTML API and feed sources into one JSON API and browser UI without fetching result web pages.
 An agent can retrieve search snippets as it needs them and keep the amount of text sent to its model small.
 
@@ -35,7 +34,7 @@ The server runs locally; **search terms are sent to the upstream engines selecte
 Start an installed binary, unless an existing service is already available:
 
 ```bash
-SEARXNG_PORT=29483 rustxng --bind 127.0.0.1 --port 29483
+SEARXNG_PORT=29483 saferustxng --bind 127.0.0.1 --port 29483
 ```
 
 In another terminal, request up to five results:
@@ -74,11 +73,11 @@ The browser UI is at <http://127.0.0.1:29483/>. JSON, CSV, RSS, and HTML outputs
 
 ## Install
 
-> **SafeRustXNG source install (`main`):** The removal of the 78 HTML engines, result-page HTML fetching, and outbound HTML responses is provided as a source install from the SafeRustXNG `main` branch at <https://github.com/yuzolabs/SafeRustXNG/tree/main>. No prebuilt binary or container image has been verified to contain these changes; to use or verify this HTML-free implementation, build from source from SafeRustXNG `main` (see [4. Source](#4-source) or [2. Cargo](#2-cargo)). The compiled binary is still named `rustxng` and reports version `0.26.0`, so `--version` alone cannot distinguish it from upstream builds. Original `sahenjp/RustXNG` `v0.26.0` release binaries and `ghcr.io/sahenjp/rustxng:latest` images are upstream-only/historical and are not verified to include these changes.
+> **SafeRustXNG source install (`main`):** The removal of the 78 HTML engines, result-page HTML fetching, and outbound HTML responses is provided as a source install from the SafeRustXNG `main` branch at <https://github.com/yuzolabs/SafeRustXNG/tree/main>. No prebuilt binary or container image has been verified to contain these changes; to use or verify this HTML-free implementation, build from source from SafeRustXNG `main` (see [4. Source](#4-source) or [2. Cargo](#2-cargo)). The compiled binary is named `saferustxng` and reports `SafeRustXNG 0.26.0`; although the version number `0.26.0` is the same as upstream, verify the `SafeRustXNG` display name, `/config` `brand.GIT_URL`, and build provenance. Original `sahenjp/RustXNG` `v0.26.0` release binaries and `ghcr.io/sahenjp/rustxng:latest` images are upstream-only/historical and are not verified to include these changes.
 
 ### 1. Release binary
 
-> **Upstream-only / historical (`sahenjp/RustXNG` `v0.26.0`):** Prebuilt binaries on [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases) are original upstream artifacts and are **not verified** to contain the SafeRustXNG HTML-fetching and HTML-engine removals. For HTML-free use or verification, build from source from SafeRustXNG `main` in [4. Source](#4-source) instead.
+> **Upstream-only / historical (`sahenjp/RustXNG` `v0.26.0`):** Prebuilt binaries on [sahenjp/RustXNG Releases](https://github.com/sahenjp/RustXNG/releases) are original upstream artifacts (named `rustxng-<tag>-<target>`, whereas SafeRustXNG's release workflow uses `saferustxng-<tag>-<target>`) and are **not verified** to contain the SafeRustXNG HTML-fetching and HTML-engine removals. For HTML-free use or verification, build from source from SafeRustXNG `main` in [4. Source](#4-source) instead.
 
 For historical upstream `sahenjp/RustXNG` `v0.26.0` reference only, the published upstream release includes Linux x86_64 (GNU and musl), macOS arm64/x86_64,
 and Windows x86_64 binaries. The [agent setup guide](docs/AGENT-SETUP.md) explains selection and verification.
@@ -109,7 +108,7 @@ Use a current stable Rust toolchain and a C build toolchain to install from Safe
 cargo install --git https://github.com/yuzolabs/SafeRustXNG.git --branch main --locked
 ```
 
-This installs `rustxng` (version `0.26.0`) and `rustxng-index`.
+This installs `saferustxng` (reporting `SafeRustXNG 0.26.0`) and `saferustxng-index`.
 `Cargo.toml` declares Rust 1.88 as the minimum supported version (MSRV) and the CI workflow defines a Rust 1.88.0 job; local verification used Rust 1.98.0 (`rustc 1.98.0 (88d9e12ae 2026-08-18)`).
 (Installing `--git https://github.com/sahenjp/RustXNG.git --tag v0.26.0` installs the upstream-only/historical `v0.26.0` tag, which is not verified to contain SafeRustXNG's HTML-fetching removals.)
 
@@ -120,8 +119,8 @@ Build the image locally from SafeRustXNG `main`:
 ```bash
 git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
-docker build -t rustxng .
-docker run --rm -p 127.0.0.1:29483:29483 rustxng
+docker build -t saferustxng .
+docker run --rm -p 127.0.0.1:29483:29483 saferustxng
 ```
 
 For the upstream-only/historical published image from `sahenjp/RustXNG` (not verified to include SafeRustXNG's HTML-fetching removals; older images also default internally to port 8888):
@@ -143,13 +142,15 @@ Build and run SafeRustXNG `main` directly from source:
 ```bash
 git clone --branch main --single-branch https://github.com/yuzolabs/SafeRustXNG.git
 cd SafeRustXNG
-cargo build --release --locked --bin rustxng
-./target/release/rustxng --bind 127.0.0.1 --port 29483
+cargo build --release --locked --bin saferustxng
+./target/release/saferustxng --bind 127.0.0.1 --port 29483
 ```
 
-The built binary is `target/release/rustxng` and reports version `0.26.0`. Use Rust 1.88 or newer, preferably the current stable toolchain.
+The built binary is `target/release/saferustxng` and reports `SafeRustXNG 0.26.0`. Use Rust 1.88 or newer, preferably the current stable toolchain.
 
 ## Configuration and operation
+
+> **Breaking rename migration:** The project display name and `--version` / `/config` version prefix changed from `RustXNG` to `SafeRustXNG`, the crate and server binary from `rustxng` to `saferustxng`, the read-only local-index binary from `rustxng-index` to `saferustxng-index`, the idle-timeout environment variable from `RUSTXNG_IDLE_TIMEOUT` to `SAFERUSTXNG_IDLE_TIMEOUT`, and release asset names from `rustxng-<tag>-<target>` to `saferustxng-<tag>-<target>` (version `0.26.0`, default port `29483`, and `SEARXNG_*` settings remain unchanged). Update existing scripts, service definitions, container tags, and agent automation to use the new names.
 
 This checkout defaults to `127.0.0.1:29483`. Upstream-only/historical `sahenjp/RustXNG` v0.26.0 release binaries still default to 8888;
 the explicit `--port 29483` commands above work with either version.
@@ -158,7 +159,7 @@ See [port migration and selection](docs/PORT-MIGRATION.md), including rdsh confi
 Defaults are embedded in the binary. To supply a configuration file:
 
 ```bash
-rustxng --config /path/to/settings.toml
+saferustxng --config /path/to/settings.toml
 ```
 
 See [settings.toml](settings.toml) and [configuration details](docs/PORTING.md).
@@ -168,9 +169,9 @@ Partial configuration merging has a known issue that can reset unspecified value
 - `/config`: registered engines and public configuration information.
 - `/stats`, `/metrics`: runtime statistics and metrics.
 - Per-engine timeouts, suspension, and empty-result rest handle unavailable sources.
-- `RUSTXNG_IDLE_TIMEOUT=300`: exit after five minutes without requests.
+- `SAFERUSTXNG_IDLE_TIMEOUT=300`: exit after five minutes without requests.
 - Optional Valkey/Redis cache and database-backed engines support additional deployments.
-- The experimental `rustxng-index` local index is disabled by default and only supports `search` and `stats` on an existing index (HTML crawling is not supported).
+- The experimental `saferustxng-index` local index is disabled by default and only supports `search` and `stats` on an existing index (HTML crawling is not supported).
 
 The [2026-11-02 audit](docs/AUDIT-2026-11-02.md) records open issues including SSRF validation,
 unsafe result URL schemes, response-size limits, and cache isolation. Use loopback for local agent setup;
@@ -235,5 +236,5 @@ cargo test --all-targets
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE). RustXNG is based on [SearXNG](https://github.com/searxng/searxng);
+[AGPL-3.0-or-later](LICENSE). SafeRustXNG is based on [SearXNG](https://github.com/searxng/searxng) and derived from [sahenjp/RustXNG](https://github.com/sahenjp/RustXNG);
 attribution is in [NOTICE](NOTICE). See the license for source-distribution obligations when operating modified versions.

@@ -1,6 +1,6 @@
 # Governance and maintainer participation
 
-RustXNG is an open-source project based on SearXNG, licensed AGPL-3.0-or-later.
+SafeRustXNG is an open-source project based on SearXNG, licensed AGPL-3.0-or-later.
 Participation is open; repository access is granted explicitly, not by popularity, payment, or automated scoring.
 
 ## Current responsibility

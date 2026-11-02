@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure the quality of a RustXNG instance on a fixed question set.
+"""Measure the quality of a SafeRustXNG instance on a fixed question set.
 
 For every question the script asks the instance for JSON results and checks
 whether one of the gold URL prefixes appears in the top k results. It reports
@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 def search(base: str, query: str, extra: dict[str, str], timeout: float) -> dict:
     params = {"q": query, "format": "json", "max_results": "10", **extra}
     url = base.rstrip("/") + "/search?" + urllib.parse.urlencode(params)
-    request = urllib.request.Request(url, headers={"User-Agent": "rustxng-quality-eval"})
+    request = urllib.request.Request(url, headers={"User-Agent": "saferustxng-quality-eval"})
     started = time.perf_counter()
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:

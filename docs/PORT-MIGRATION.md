@@ -15,16 +15,16 @@ individual game servers do use custom ports in this range. A free port on your m
 
 ## Native and existing installations
 
-Use the same explicit command with old or new binaries:
+Use the same explicit port arguments (note that this fork renamed the server binary from `rustxng` to `saferustxng`; historical upstream `sahenjp/RustXNG` v0.26.0 binaries use `rustxng`):
 
 ```bash
-SEARXNG_PORT=29483 rustxng --bind 127.0.0.1 --port 29483
+SEARXNG_PORT=29483 saferustxng --bind 127.0.0.1 --port 29483
 ```
 
 To preserve an existing 8888 deployment:
 
 ```bash
-rustxng --bind 127.0.0.1 --port 8888
+saferustxng --bind 127.0.0.1 --port 8888
 ```
 
 Alternatives are `SEARXNG_PORT=8888` or `port = 8888` under `[server]` in a configuration file.
@@ -45,7 +45,7 @@ docker run --rm -p 127.0.0.1:29483:29483 -e SEARXNG_PORT=29483 ghcr.io/yuzolabs/
 To keep the legacy host endpoint with a new image:
 
 ```bash
-docker run --rm -p 127.0.0.1:8888:29483 rustxng --bind 0.0.0.0 --port 29483
+docker run --rm -p 127.0.0.1:8888:29483 saferustxng --bind 0.0.0.0 --port 29483
 ```
 
 `EXPOSE` documents the container port; it does not publish a host port.

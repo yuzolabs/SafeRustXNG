@@ -1,4 +1,4 @@
-# Contributing to RustXNG
+# Contributing to SafeRustXNG
 
 Bug reports, documentation, benchmarks, reviews, and code are welcome. 日本語・Englishどちらでも参加できます。
 You do not need repository access to contribute: fork the repository and open a PR.
@@ -44,10 +44,10 @@ npx --yes markdownlint-cli2 "*.md" "docs/*.md"
 cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
 cargo test --all-targets
-python3 tools/smoke_agent_setup.py --binary target/debug/rustxng
+python3 tools/smoke_agent_setup.py --binary target/debug/saferustxng
 ```
 
-Build the server with `cargo build --locked --bin rustxng` before running the setup smoke tool.
+Build the server with `cargo build --locked --bin saferustxng` before running the setup smoke tool.
 It uses local fake responses, not live upstream search. CI additionally checks Linux/macOS/Windows,
 `--no-default-features`, Rust 1.88, and the container.
 Do not claim a check passed if it was not run. State the command, toolchain and limitation clearly.

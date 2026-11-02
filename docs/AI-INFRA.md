@@ -1,6 +1,6 @@
-# AIエージェントの情報取得層としてのRustXNG
+# AIエージェントの情報取得層としてのSafeRustXNG
 
-RustXNGは、エージェントが必要な情報を検索し、出典URLと短い本文を取得するための基盤です。
+SafeRustXNGは、エージェントが必要な情報を検索し、出典URLと短い本文を取得するための基盤です。
 モデルに渡す情報を必要な範囲に絞り、知識の更新を検索で補うことを目指します。
 
 ## 基本の使い方
@@ -10,7 +10,7 @@ RustXNGは、エージェントが必要な情報を検索し、出典URLと短�
 このチェックアウトの既定ポートは29483です。旧版を含む移行手順は[こちら](PORT-MIGRATION.md)です。
 
 ```bash
-SEARXNG_PORT=29483 rustxng --bind 127.0.0.1 --port 29483
+SEARXNG_PORT=29483 saferustxng --bind 127.0.0.1 --port 29483
 # 別のターミナルから
 curl --fail --get 'http://127.0.0.1:29483/search' \
   --data-urlencode 'q=tokio runtime documentation' \
@@ -27,7 +27,7 @@ curl --fail --get 'http://127.0.0.1:29483/search' \
 取得したJSONから`title`・`url`・`content`だけをモデルへ渡す例はREADMEにあります。
 サーバー側の返却項目指定や、厳密なtokenizer別の予算は未実装です。
 
-検索結果ページのHTML本文取得（旧`include_raw_content=1`および`raw_content`フィールド）とHTMLクローラー（旧`rustxng-index crawl`）は削除されました。旧クエリパラメータが渡された場合も無視され、結果URLへの通信は行いません。`/search`および`/research`は検索エンジン（API・フィード）が返す`content`（要約）のみを使用します。
+検索結果ページのHTML本文取得（旧`include_raw_content=1`および`raw_content`フィールド）とHTMLクローラー（旧`rustxng-index crawl`）は削除されました（読み取り専用インデックスCLIは`saferustxng-index`へ改名）。旧クエリパラメータが渡された場合も無視され、結果URLへの通信は行いません。`/search`および`/research`は検索エンジン（API・フィード）が返す`content`（要約）のみを使用します。
 文字数はトークン数ではなく、検索結果を取得できたことだけで内容の正確さは保証されません。
 
 ## 品質と可用性を測る

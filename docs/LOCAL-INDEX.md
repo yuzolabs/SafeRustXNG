@@ -1,22 +1,22 @@
 # 自前インデックス（ローカル BM25）
 
 > **実験機能です。既定では無効です。** `local_index_path` を設定したときだけ既存のローカル Tantivy インデックスを開きます。
-> **HTML クローラー機能は削除されました。** `rustxng-index` は既存インデックスに対する `search` と `stats` のみを受け付け、`crawl` サブコマンドおよびクローラー用オプション（`--seeds` / `--out` / `--sitemaps` / `--max-pages` / `--max-depth` / `--workers` / `--delay-ms`）はインデックスやネットワークへアクセスする前に拒否されます。
+> **HTML クローラー機能は削除されました。** `saferustxng-index`（旧 `rustxng-index`）は既存インデックスに対する `search` と `stats` のみを受け付け、`crawl` サブコマンドおよびクローラー用オプション（`--seeds` / `--out` / `--sitemaps` / `--max-pages` / `--max-depth` / `--workers` / `--delay-ms`）はインデックスやネットワークへアクセスする前に拒否されます。
 
-RustXNG は既存の互換性のある**ローカル全文検索インデックス（Tantivy BM25）**を読み取り専用で開き、ローカルのヒットを上流エンジンの結果に併合できます。インデックスの新規作成・追記・インポート用 CLI やライブラリの書き込み API は提供しません。既存インデックスの英語・日本語検索と件数表示は引き続き利用できます。
+SafeRustXNG は既存の互換性のある**ローカル全文検索インデックス（Tantivy BM25）**を読み取り専用で開き、ローカルのヒットを上流エンジンの結果に併合できます。インデックスの新規作成・追記・インポート用 CLI やライブラリの書き込み API は提供しません。既存インデックスの英語・日本語検索と件数表示は引き続き利用できます。
 
 ## 構成
 
 ```text
 既存の Tantivy インデックス（BM25）
                 ↓
-rustxng-index <search|stats>（ローカル検索・件数確認、通信なし）
-rustxng（--port 29483）       →  ローカルのヒットを上流エンジンの結果に併合
+saferustxng-index <search|stats>（ローカル検索・件数確認、通信なし）
+saferustxng（--port 29483）       →  ローカルのヒットを上流エンジンの結果に併合
 ```
 
 - **転置インデックス**: Tantivy（Rust 製、BM25 でスコアリング）
 - **二重トークナイズ**: 空白区切り言語は既定トークナイザ、日本語・中国語は**文字バイグラム**（分かち書きが無いため）
-- **ネットワーク非依存**: `rustxng-index` は既存のローカルインデックスの検索（`search`）と統計表示（`stats`）のみを行い、外部へ HTTP リクエストを送りません
+- **ネットワーク非依存**: `saferustxng-index` は既存のローカルインデックスの検索（`search`）と統計表示（`stats`）のみを行い、外部へ HTTP リクエストを送りません
 
 ## 使い方
 
@@ -24,16 +24,16 @@ rustxng（--port 29483）       →  ローカルのヒットを上流エンジ�
 
 ```bash
 # 1. 既存インデックスの件数確認
-rustxng-index stats --index ./index-data
+saferustxng-index stats --index ./index-data
 
 # 2. 既存インデックスのローカル検索
-rustxng-index search --index ./index-data "tokio runtime" --limit 5
+saferustxng-index search --index ./index-data "tokio runtime" --limit 5
 
 # 3. 下記の local_index_path を設定した構成ファイルを指定して起動
-rustxng --config /path/to/settings.toml
+saferustxng --config /path/to/settings.toml
 ```
 
-`rustxng-index crawl` などの HTML クロール機能はサポートされていません（実行すると `usage: rustxng-index <search|stats> [--index PATH] [--limit N] [QUERY]; HTML crawling is not supported` で終了コード 2 を返します）。
+`saferustxng-index crawl`（旧 `rustxng-index crawl`）などの HTML クロール機能はサポートされていません（実行すると `usage: saferustxng-index <search|stats> [--index PATH] [--limit N] [QUERY]; HTML crawling is not supported` で終了コード 2 を返します）。
 
 ## 設定
 
