@@ -8,6 +8,7 @@
 
 - Removed 78 HTML-scraping engines (including the generic `xpath` engine), result-page HTML body fetching (`include_raw_content` processing, `raw_content` result fields, and `search.raw_content_limit` / `search.raw_content_chars` settings), and the `rustxng-index crawl` HTML crawler; legacy `include_raw_content` query parameters are ignored without network requests to result URLs, and `/research` summarizes upstream engine `content` snippets only.
 - Removed `LocalIndex::open_for_write`, `LocalIndex::add`, `LocalIndex::commit`, `LocalIndex::has_url`, and the `Page` write API; `LocalIndex` and `rustxng-index` now support read-only `search` and `stats` over existing compatible indexes only and do not create or repair missing, empty, or corrupted indexes.
+- Removed the upstream-specific community setup record in `docs/COMMUNITY-SETUP.md`, which did not describe this fork's repository settings.
 
 ### Security
 
