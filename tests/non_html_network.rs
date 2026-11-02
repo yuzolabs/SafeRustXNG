@@ -97,19 +97,97 @@ async fn html_is_rejected_before_waiting_for_its_body_or_retrying() {
         ] {
             // A body that never arrives proves rejection happens at the headers.
             let (url, requests, server) = response_server(content_type, status, None).await;
-            let network = Network::from_settings(&Settings::defaults()).unwrap();
+            let mut settings = Settings::defaults();
+            settings.outgoing.retries = 0;
+            let network = Network::from_settings(&settings).unwrap();
             let error = network
                 .fetch(EngineRequest::get(url), Duration::from_secs(1), None, None)
                 .await
                 .unwrap_err();
-            assert!(
-                matches!(error, NetworkError::UnsupportedContentType(_)),
-                "{error}"
-            );
+            if status == StatusCode::OK {
+                assert!(matches!(error, NetworkError::UnsupportedContentType(_)));
+            } else {
+                assert!(matches!(&error, NetworkError::Status { body, response, .. }
+                    if body.is_empty() && response.body.is_empty()));
+                let (kind, suspension) = if status == StatusCode::FORBIDDEN {
+                    (FailureKind::AccessDenied, 86_400)
+                } else {
+                    (FailureKind::TooManyRequests, 300)
+                };
+                assert_eq!(error.failure_kind(), kind);
+                let states = rustxng::engine::state::EngineStates::default();
+                assert_eq!(
+                    states.record_failure("test", kind, &settings.search),
+                    suspension
+                );
+            }
             assert_eq!(requests.load(Ordering::SeqCst), 1);
             server.abort();
         }
     }
+}
+
+#[tokio::test]
+async fn http_failures_retry_with_or_without_machine_content_types() {
+    for content_type in [Some("text/html"), None, Some("application/json")] {
+        for status in [
+            StatusCode::TOO_MANY_REQUESTS,
+            StatusCode::SERVICE_UNAVAILABLE,
+        ] {
+            // Rejected bodies never arrive; supported JSON errors can be consumed.
+            let body = (content_type == Some("application/json")).then_some("{}");
+            let (url, requests, server) = response_server(content_type, status, body).await;
+            let mut settings = Settings::defaults();
+            settings.outgoing.retries = 1;
+            let network = Network::from_settings(&settings).unwrap();
+            let error = network
+                .fetch(EngineRequest::get(url), Duration::from_secs(3), None, None)
+                .await
+                .unwrap_err();
+            assert!(matches!(error, NetworkError::Status { status: code, .. }
+                if code == status.as_u16()));
+            assert_eq!(requests.load(Ordering::SeqCst), 2);
+            server.abort();
+        }
+    }
+}
+
+#[tokio::test]
+async fn rate_limit_retry_can_recover_to_a_machine_response() {
+    let requests = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&requests);
+    let app = Router::new().fallback(move || {
+        let attempt = counter.fetch_add(1, Ordering::SeqCst);
+        async move {
+            if attempt == 0 {
+                Response::builder()
+                    .status(StatusCode::TOO_MANY_REQUESTS)
+                    .header(header::CONTENT_TYPE, "text/html")
+                    .body(Body::from_stream(futures::stream::pending::<
+                        Result<Bytes, std::io::Error>,
+                    >()))
+                    .unwrap()
+            } else {
+                Response::builder()
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap()
+            }
+        }
+    });
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let mut settings = Settings::defaults();
+    settings.outgoing.retries = 1;
+    let network = Network::from_settings(&settings).unwrap();
+    let response = network
+        .fetch(EngineRequest::get(url), Duration::from_secs(3), None, None)
+        .await
+        .unwrap();
+    assert_eq!(response.body, b"{}");
+    assert_eq!(requests.load(Ordering::SeqCst), 2);
+    server.abort();
 }
 
 #[tokio::test]

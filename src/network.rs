@@ -298,7 +298,23 @@ impl Network {
             if remaining.is_zero() {
                 return Err(NetworkError::Timeout);
             }
-            let outcome = self.send(client.clone(), &request, remaining).await;
+            let outcome = self
+                .send(client.clone(), &request, remaining)
+                .await
+                .and_then(|response| {
+                    if response.status >= 400 {
+                        Err(NetworkError::Status {
+                            status: response.status,
+                            body: String::from_utf8_lossy(
+                                &response.body[..response.body.len().min(4096)],
+                            )
+                            .to_string(),
+                            response: Box::new(response),
+                        })
+                    } else {
+                        Ok(response)
+                    }
+                });
             match outcome {
                 Ok(response) => {
                     if let Some(cache) = cache {
@@ -316,27 +332,6 @@ impl Network {
                                 .await;
                         }
                     }
-                    // A 429 usually clears within a second. Retrying once keeps
-                    // a good engine (Yahoo! JAPAN, Bing) alive instead of
-                    // suspending it for minutes.
-                    if response.status == 429 && attempt <= self.retries {
-                        let backoff = Duration::from_millis(700);
-                        if tokio::time::Instant::now() + backoff < deadline {
-                            debug!(url = %request.url, "rate limited, retrying after a pause");
-                            tokio::time::sleep(backoff).await;
-                            continue;
-                        }
-                    }
-                    if response.status >= 400 {
-                        return Err(NetworkError::Status {
-                            status: response.status,
-                            body: String::from_utf8_lossy(
-                                &response.body[..response.body.len().min(4096)],
-                            )
-                            .to_string(),
-                            response: Box::new(response),
-                        });
-                    }
                     return Ok(response);
                 }
                 Err(error) if attempt <= self.retries && is_retryable(&error) => {
@@ -344,7 +339,11 @@ impl Network {
                     if matches!(error, NetworkError::Timeout) {
                         return Err(error);
                     }
-                    let backoff = Duration::from_millis(250 * attempt as u64);
+                    let backoff = if matches!(error, NetworkError::Status { status: 429, .. }) {
+                        Duration::from_millis(700)
+                    } else {
+                        Duration::from_millis(250 * attempt as u64)
+                    };
                     if tokio::time::Instant::now() + backoff >= deadline {
                         return Err(error);
                     }
@@ -418,12 +417,12 @@ impl Network {
                     NetworkError::Transport(error.to_string())
                 }
             })?;
-            validate_machine_content_type(
+            let content_type_validation = validate_machine_content_type(
                 response
                     .headers()
                     .get(reqwest::header::CONTENT_TYPE)
                     .and_then(|value| value.to_str().ok()),
-            )?;
+            );
             let status = response.status().as_u16();
             let final_url = response.url().to_string();
             let mut headers = BTreeMap::new();
@@ -431,6 +430,22 @@ impl Network {
                 if let Ok(value) = value.to_str() {
                     headers.insert(name.as_str().to_lowercase(), value.to_string());
                 }
+            }
+            if let Err(error) = content_type_validation {
+                // Preserve HTTP failure classification without consuming a rejected body.
+                if status >= 400 {
+                    return Err(NetworkError::Status {
+                        status,
+                        body: String::new(),
+                        response: Box::new(EngineResponse {
+                            status,
+                            final_url,
+                            headers,
+                            body: Vec::new(),
+                        }),
+                    });
+                }
+                return Err(error);
             }
             let body = response
                 .bytes()
