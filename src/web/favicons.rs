@@ -22,7 +22,9 @@ use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 
 use super::AppState;
-use super::image_proxy::{is_public_url, is_valid, sandboxed_image_response, signature};
+use super::image_proxy::{
+    image_content_type, is_public_url, is_valid, sandboxed_image_response, signature,
+};
 use crate::engine::EngineRequest;
 
 /// The path of the favicon proxy (upstream's 'favicon_proxy' route).
@@ -142,13 +144,7 @@ async fn fetch_favicon(state: &AppState, url: &str) -> Option<(String, Vec<u8>)>
     if response.body.is_empty() {
         return None;
     }
-    let content_type = response
-        .header("content-type")
-        .unwrap_or_default()
-        .to_string();
-    if !content_type.starts_with("image/") {
-        return None;
-    }
+    let content_type = image_content_type(response.header("content-type"))?;
     Some((content_type, response.body))
 }
 

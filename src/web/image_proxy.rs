@@ -129,14 +129,19 @@ pub async fn handler(
             return (StatusCode::BAD_GATEWAY, format!("upstream error: {error}")).into_response();
         }
     };
-    let content_type = response
-        .header("content-type")
-        .unwrap_or("application/octet-stream")
-        .to_string();
-    if !content_type.starts_with("image/") {
+    let Some(content_type) = image_content_type(response.header("content-type")) else {
         return (StatusCode::BAD_GATEWAY, "upstream did not return an image").into_response();
-    }
+    };
     sandboxed_image_response(content_type, 86_400, response.body)
+}
+
+/// Normalize an upstream image Content-Type to its validated bare media type;
+/// never reflect parameters or malformed subtypes into a proxy response.
+pub(super) fn image_content_type(raw: Option<&str>) -> Option<String> {
+    let essence = raw?.split(';').next()?.trim().to_ascii_lowercase();
+    let subtype = essence.strip_prefix("image/")?;
+    let token = |c: char| c.is_ascii_alphanumeric() || "!#$&-^_.+".contains(c);
+    (!subtype.is_empty() && subtype.chars().all(token)).then_some(essence)
 }
 
 /// Isolate proxied images, including SVG documents opened directly, from our origin.
@@ -183,6 +188,41 @@ mod tests {
         assert!(!is_public_url("http://localhost/x.png"));
         assert!(!is_public_url("file:///etc/passwd"));
         assert!(is_public_url("https://upload.wikimedia.org/x.png"));
+    }
+
+    #[test]
+    fn only_image_media_types_are_accepted_and_normalised() {
+        let ct = |raw| image_content_type(Some(raw));
+        assert_eq!(ct("image/png").as_deref(), Some("image/png"));
+        assert_eq!(
+            ct(" Image/SVG+XML ; charset=utf-8").as_deref(),
+            Some("image/svg+xml")
+        );
+        assert_eq!(ct("image/x-icon").as_deref(), Some("image/x-icon"));
+        assert_eq!(ct("text/html"), None);
+        assert_eq!(ct("image/"), None);
+        assert_eq!(ct("image/svg+xml\"><script>"), None);
+        assert_eq!(ct("imagex/png"), None);
+        assert_eq!(image_content_type(None), None);
+    }
+
+    #[test]
+    fn proxied_images_cannot_become_active_documents() {
+        let response = sandboxed_image_response(
+            "image/svg+xml".into(),
+            1,
+            b"<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>".to_vec(),
+        );
+        let headers = response.headers();
+        assert_eq!(headers[header::CONTENT_TYPE], "image/svg+xml");
+        assert_eq!(headers[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
+        let csp = headers[header::CONTENT_SECURITY_POLICY].to_str().unwrap();
+        assert!(csp.contains("default-src 'none'"));
+        assert!(
+            csp.split(';')
+                .any(|directive| directive.trim() == "sandbox")
+        );
+        assert!(!csp.contains("allow-scripts"));
     }
 
     #[test]

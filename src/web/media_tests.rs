@@ -17,17 +17,19 @@ use crate::settings::Settings;
 
 #[tokio::test]
 async fn image_and_favicon_proxies_sandbox_svg_without_changing_image_bytes() {
-    for (content_type, payload) in [
+    for (upstream_type, content_type, payload) in [
         (
+            "image/svg+xml",
             "image/svg+xml",
             r#"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(document.cookie)"><script>alert(1)</script><rect width="10" height="10"/></svg>"#,
         ),
-        ("image/png", "raster image bytes"),
+        ("image/png", "image/png", "raster image bytes"),
+        ("Image/SVG+XML; charset=utf-8", "image/svg+xml", "<svg/>"),
     ] {
         let upstream =
             Router::new().fallback(get(move |headers: axum::http::HeaderMap| async move {
                 assert_eq!(headers[header::ACCEPT], "image/*");
-                ([(header::CONTENT_TYPE, content_type)], payload)
+                ([(header::CONTENT_TYPE, upstream_type)], payload)
             }));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
