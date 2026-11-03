@@ -18,7 +18,7 @@
 | `src/results.rs` | `searx/results.py`, `searx/result_types/` |
 | `src/engine/mod.rs` | `searx/engines/__init__.py` |
 | `src/engine/state.rs` | `searx/engines/__init__.py` の suspend / error 処理 |
-| `src/engine/util.rs` | `searx/utils.py` 相当の補助（API・フィード要約のタグ/エンティティ除去、RSS 解析、URL 展開。`src/engine/xpath.rs` と `src/engine/xml.rs` は削除済み） |
+| `src/engine/util.rs` | `searx/utils.py` 相当の補助（API・フィード要約のタグ/エンティティ除去、URL 展開。`src/engine/xpath.rs` と `src/engine/xml.rs` は削除済み） |
 | `src/engines/*.rs` | `searx/engines/*.py` |
 | `src/network.rs` | `searx/network/` |
 | `src/cache.rs` | `searx/cache.py` |
@@ -44,12 +44,12 @@
 | エンジンフレームワーク（paging / time_range / safesearch / language / weight / timeout） | 移植済み | `Engine` トレイト |
 | エンジンのサスペンドと統計 | 移植済み | `ban_time_on_fail`、`max_ban_time_on_fail`、`suspended_times` を反映 |
 | HTTP クライアント（UA ローテーション、プロキシ、リトライ、タイムアウト） | 移植済み | `outgoing` 設定に対応 |
-| 時間範囲フィルタ（`time_range`） | 移植済み | UI のセレクタと API の両方から指定可能。エンジン側はネイティブな日付フィルタへ変換（Google News `when:`、Bing News `qft`、Crossref `from-pub-date`、GitHub `pushed:>`、arXiv の日付順ソート、Stack Exchange `fromdate`、Hacker News `numericFilters`、Dailymotion の期間指定） |
+| 時間範囲フィルタ（`time_range`） | 移植済み | UI のセレクタと API の両方から指定可能。エンジン側はネイティブな日付フィルタへ変換（Crossref `from-pub-date`、GitHub `pushed:>`、arXiv の日付順ソート、Stack Exchange `fromdate`、Hacker News `numericFilters`、Dailymotion の期間指定） |
 | 応答キャッシュ | 部分 | メモリ内 TTL + LRU のみ。上流の valkey / redis / sqlite バックエンドは未移植 |
 | メトリクス | 移植済み | メモリ内カウンタ、`/stats` と `/metrics`（OpenMetrics / Prometheus）。エンジン指標は上流と同じ `searxng_engines_*` 名 |
 | レート制限・bot 検出（`limiter.toml`、botdetection） | 部分 | `server.limiter = true` で動く簡易レート制限（クライアント単位の固定窓、`limiter_window` / `limiter_max`）。上流の botdetection（link token、Redis カウンタ、IP 範囲判定）は未移植 |
 | 検索 API（html / json / csv / rss） | 移植済み | `format=` で切り替え |
-| `/autocompleter` | 移植済み | duckduckgo / google / wikipedia / mwmbl |
+| `/autocompleter` | 移植済み | duckduckgo（既定） / wikipedia / mwmbl。google は削除済み。未知・削除済みのバックエンドは外部通信せず空の候補を返す |
 | `/config`、`/preferences`、`/stats`、`/healthz`、`/opensearch.xml` | 移植済み | 設定は Cookie 保存（上流と同じ発想） |
 | HTML UI（検索フォーム、結果一覧、ページ送り、設定画面） | 部分 | simple テーマ相当の 1 テーマのみ。テーマ切り替えは Cookie に保存するだけ |
 | 多言語 UI（babel 翻訳） | 未移植 | UI 文言は英語のみ |
@@ -78,13 +78,11 @@
 
 ## エンジン対応
 
-人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および HTML 内の埋め込み JSON を使うものを含む）は削除しました。あわせて、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`、`src/content.rs`）、エンジン向け HTML/XPath パーサ（`src/engine/xpath.rs` / `src/engine/xml.rs`、`scraper` 依存）、および `rustxng-index crawl` の HTML クローラーも削除済みです（現在の `saferustxng-index`［旧 `rustxng-index`］は既存インデックスの `search` / `stats` のみ対応し、`/research` は API・フィードの `result.content` のみを使用します。Web の HTML UI と API・フィード要約のマークアップ除去は維持しています）。以下は残っているエンジンの例です。登録の全体は `src/engines/mod.rs`、同梱設定は `settings.toml` を参照してください。非 HTML レスポンスを扱う構成であり、公式 API 限定や利用規約への適合を保証するものではありません。また、エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、履歴数値を現在の性能保証として扱うことはできません。
+人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および HTML 内の埋め込み JSON を使うものを含む）は削除しました。あわせて、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`、`src/content.rs`）、エンジン向け HTML/XPath パーサ（`src/engine/xpath.rs` / `src/engine/xml.rs`、`scraper` 依存）、および `rustxng-index crawl` の HTML クローラーも削除済みです（現在の `saferustxng-index`［旧 `rustxng-index`］は既存インデックスの `search` / `stats` のみ対応し、`/research` は API・フィードの `result.content` のみを使用します。Web の HTML UI と API・フィード要約のマークアップ除去は維持しています）。さらに利用規約上の制約に基づく非 HTML の 30 型を削除しました（型・shortcut・理由は [CHANGELOG](../CHANGELOG.md#unreleased)）。以下は残っているエンジンの例です。登録の全体は `src/engines/mod.rs`、同梱設定は `settings.toml` を参照してください。非 HTML レスポンスを扱う構成であり、公式 API 限定や利用規約への適合を保証するものではありません。また、エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、履歴数値を現在の性能保証として扱うことはできません。
 
 | エンジン | 上流 | 逸脱・補足 |
 | --- | --- | --- |
 | mwmbl | `mwmbl.py` | JSON API |
-| google news | `google_news.py` | 上流は HTML をスクレイプ。本実装は同サービスの RSS を使用（JS 不要で公開日時と配信元が取れる） |
-| bing news | `bing_news.py` | 上流は内部 JSON（`/news/infinitescrollajax`）。本実装は RSS を使用し、`qft` の期間指定は上流と同じ |
 | wikipedia | `wikipedia.py` | MediaWiki API。上流の REST サマリ取得（インフォボックス）は未移植 |
 | wikidata | `wikidata.py` | `wbsearchentities` のみ |
 | openlibrary | `openlibrary.py` | `search.json` |
@@ -108,8 +106,8 @@
 ### 削除したエンジンの範囲
 
 - **HTML ページ依存の実装**: DuckDuckGo・Google・Bing の HTML 検索、Brave、Mojeek、PyPI、YouTube noapi など。Flickr noapi、Quark、Startpage、Sogou images、System1 rampjs のように HTML 内の JSON を抽出する実装も含みます。
-- **XPath ベースの汎用エンジン**（`engine: xpath`）: XML 用も含めて削除しました。既存の arXiv（Atom XML）や Google News / Bing News（RSS）は残しています。
-- API キーの要否やサービスの用途による一律の除外ではありません。`braveapi`、`google_cse`、`kagi`、`flickr`、`youtube_api` などは残っています。
+- **XPath ベースの汎用エンジン**（`engine: xpath`）: XML 用も含めて削除しました。arXiv（Atom XML）は残していますが、Google News / Bing News（RSS）は利用規約上の制約に基づく追加削除の対象です。
+- API キーの要否やサービスの用途による一律の除外ではありません。`braveapi`、`kagi`、`flickr`、`youtube_api` などの公式キー必須 API は既定無効のまま残っています。`google_cse` は追加削除の対象です。
 
 ## 既知の制約
 

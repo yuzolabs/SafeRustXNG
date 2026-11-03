@@ -2,15 +2,15 @@
 
 > 検索 API を 1 本に。複数の検索先を、自分のサーバーから。
 >
-> **現在の構成に関する注意：** 人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および Google・Bing・DuckDuckGo・Brave の HTML 検索などを含む）と、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`）・HTML クローラー（`rustxng-index crawl`）は、SafeRustXNG（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）で削除されています。現在は非 HTML レスポンス（JSON API・Atom/RSS フィード・DB 等）を扱うエンジンのみを残しています（公式 API 限定や利用規約への適合を保証するものではありません）。下表のレイテンシ等の数値は HTML エンジン削除前の履歴スナップショットです。エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、履歴数値を現在の性能保証として扱うことはできません。
+> **現在の構成に関する注意：** 人向け HTML ページを取得・解析する計 78 エンジン（汎用 `xpath` エンジン、および Google・Bing・DuckDuckGo・Brave の HTML 検索などを含む）と、検索結果ページの HTML 本文取得（`include_raw_content` / `raw_content`）・HTML クローラー（`rustxng-index crawl`）は、SafeRustXNG（<https://github.com/yuzolabs/SafeRustXNG/tree/main>）で削除されています。さらに、利用規約上の制約に基づき非 HTML の 30 型も削除しました（一覧・理由は [CHANGELOG](../CHANGELOG.md#unreleased)）。現在は非 HTML レスポンス（JSON API・Atom/RSS フィード・DB 等）を扱うエンジンのみを残しています（公式 API 限定や利用規約への適合を保証するものではありません）。下表のレイテンシ等の数値は HTML エンジン削除前の履歴スナップショットです。エンジン削除前後での同時期・同一環境の比較や商用プロバイダーとの再比較は行っておらず、履歴数値を現在の性能保証として扱うことはできません。
 
 ## これは何か
 
 **SafeRustXNG は、AI エージェントに検索させるためのセルフホスト型メタ検索エンジンです。**
 
-Wikipedia・GitHub・arXiv・PubMed・crates.io・Google News（RSS）・Bing News（RSS）など、非 HTML の API・フィードを検索するエンジン群（`settings.toml` に 183 エントリ、既定有効 98）を 1 つの JSON API にまとめ、Rust の単一バイナリで動きます。Python もデータベースも必須の API キーも要りません。
+Wikipedia・GitHub・arXiv・PubMed・crates.io など、非 HTML の API・フィードを検索するエンジン群（`settings.toml` に 153 エントリ、既定有効 76）を 1 つの JSON API にまとめ、Rust の単一バイナリで動きます。Python もデータベースも必須の API キーも要りません。
 
-SearXNG の基本的な HTTP API・検索構文・設定形式を引き継いでいるため、既存の SearXNG 向けツールやプロンプトから利用できます（削除された HTML エンジンや `include_raw_content` 等の例外については [docs/COMPATIBILITY.md](COMPATIBILITY.md) を参照してください）。
+SearXNG の基本的な HTTP API・検索構文・設定形式を引き継いでいるため、既存の SearXNG 向けツールやプロンプトから利用できます（削除されたエンジンや `include_raw_content` 等の例外については [docs/COMPATIBILITY.md](COMPATIBILITY.md) を参照してください）。
 
 ## なぜ AI エージェントに良いのか
 
@@ -150,6 +150,6 @@ docker build -t saferustxng . && docker run --rm -p 127.0.0.1:29483:29483 saferu
 ## 補足
 
 - **ライセンス**: AGPL-3.0-or-later（SearXNG と同じ）。帰属は NOTICE に記載
-- **互換性**: SearXNG 互換の HTTP API・検索構文・設定形式。汎用 `xpath` を含む計 78 個の HTML 取得エンジンは削除済みで、現在は非 HTML エンジン（165 モジュール / `settings.toml` 183 エントリ）のみです。詳細は [docs/COMPATIBILITY.md](COMPATIBILITY.md) と [docs/COVERAGE.md](COVERAGE.md)
+- **互換性**: SearXNG 互換の HTTP API・検索構文・設定形式。汎用 `xpath` を含む計 78 個の HTML 取得エンジンに加え、利用規約上の制約に基づく 30 型も削除済みで、現在は非 HTML エンジン（135 モジュール / `settings.toml` 153 エントリ、既定有効 76）のみです。詳細は [docs/COMPATIBILITY.md](COMPATIBILITY.md) と [docs/COVERAGE.md](COVERAGE.md)
 - **バイナリサイズ**: 17 MB（DB エンジンを外した場合）/ 27 MB（全部入り）
 - **向いていない用途**: 画面デザインは独自なので、SearXNG のテーマをそのまま使いたい場合は不向きです

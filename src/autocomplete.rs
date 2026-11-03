@@ -8,9 +8,9 @@ use crate::network::Network;
 use crate::settings::Settings;
 
 /// Autocomplete backends, in the order they are tried.
-pub static BACKENDS: &[&str] = &["duckduckgo", "google", "wikipedia", "mwmbl"];
+pub static BACKENDS: &[&str] = &["duckduckgo", "wikipedia", "mwmbl"];
 
-/// Fetch suggestions for `query` from `backend`.
+/// Fetch suggestions from a supported backend; unknown names never send queries.
 pub async fn suggest(
     network: &Network,
     settings: &Settings,
@@ -18,14 +18,7 @@ pub async fn suggest(
     query: &str,
     locale: &str,
 ) -> Vec<String> {
-    let (url, is_json) = match backend {
-        "google" => (
-            format!(
-                "https://suggestqueries.google.com/complete/search?client=firefox&q={}",
-                crate::engine::util::encode(query)
-            ),
-            true,
-        ),
+    let url = match backend {
         "wikipedia" => {
             let language = locale_language(locale);
             let language = if language == "all" {
@@ -33,31 +26,21 @@ pub async fn suggest(
             } else {
                 language
             };
-            (
-                format!(
-                    "https://{language}.wikipedia.org/w/api.php?action=opensearch&limit=10&format=json&search={}",
-                    crate::engine::util::encode(query)
-                ),
-                true,
+            format!(
+                "https://{language}.wikipedia.org/w/api.php?action=opensearch&limit=10&format=json&search={}",
+                crate::engine::util::encode(query)
             )
         }
-        "mwmbl" => (
-            format!(
-                "https://api.mwmbl.org/api/v1/search/?s={}",
-                crate::engine::util::encode(query)
-            ),
-            true,
+        "mwmbl" => format!(
+            "https://api.mwmbl.org/api/v1/search/?s={}",
+            crate::engine::util::encode(query)
         ),
-        // duckduckgo is the default backend
-        _ => (
-            format!(
-                "https://duckduckgo.com/ac/?type=list&q={}",
-                crate::engine::util::encode(query)
-            ),
-            true,
+        "duckduckgo" => format!(
+            "https://duckduckgo.com/ac/?type=list&q={}",
+            crate::engine::util::encode(query)
         ),
+        _ => return Vec::new(),
     };
-    let _ = is_json;
     let request = EngineRequest::get(url).header("Accept", "application/json");
     let timeout = std::time::Duration::from_secs_f64(settings.search.timeout_limit.clamp(1.0, 3.0));
     match network.fetch(request, timeout, None, None).await {
@@ -95,8 +78,8 @@ pub fn parse_suggestions(backend: &str, response: &EngineResponse) -> Vec<String
                 }
             }
         }
-        // duckduckgo: [{"phrase": "..."}], google: ["query", ["...", ...]]
-        _ => {
+        // DuckDuckGo can return phrase objects or an OpenSearch-style list.
+        "duckduckgo" => {
             if let Some(items) = json.as_array() {
                 for item in items {
                     if let Some(text) = item.as_str() {
@@ -117,6 +100,7 @@ pub fn parse_suggestions(backend: &str, response: &EngineResponse) -> Vec<String
                 }
             }
         }
+        _ => return Vec::new(),
     }
     suggestions.into_iter().take(10).collect()
 }
@@ -144,10 +128,10 @@ mod tests {
     }
 
     #[test]
-    fn google_suggestions_are_parsed() {
+    fn duckduckgo_list_suggestions_are_parsed() {
         let body = r#"["rust",["rust","rust book","rustup"]]"#;
         assert_eq!(
-            parse_suggestions("google", &response(body)),
+            parse_suggestions("duckduckgo", &response(body)),
             vec![
                 "rust".to_string(),
                 "rust book".to_string(),
@@ -170,6 +154,16 @@ mod tests {
 
     #[test]
     fn broken_json_yields_no_suggestions() {
-        assert!(parse_suggestions("google", &response("<html>")).is_empty());
+        assert!(parse_suggestions("duckduckgo", &response("<html>")).is_empty());
+    }
+
+    #[test]
+    fn removed_and_unknown_backends_have_no_suggestions() {
+        assert_eq!(BACKENDS, &["duckduckgo", "wikipedia", "mwmbl"]);
+        assert_eq!(Settings::defaults().search.autocomplete, "duckduckgo");
+        for backend in ["google", "unknown", "", "none"] {
+            assert!(parse_suggestions(backend, &response(r#"[{"phrase":"rust"}]"#)).is_empty());
+            assert!(parse_suggestions(backend, &response(r#"["rust",["rust book"]]"#)).is_empty());
+        }
     }
 }
