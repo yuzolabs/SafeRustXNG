@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::engine::{
     Engine, EngineDefaults, EngineError, EngineItem, EngineMeta, EngineRequest, EngineResponse,
@@ -77,6 +77,7 @@ impl ValkeyServer {
                     .map_err(|error| EngineError::Message(format!("valkey: {error}")))?,
             ),
             writer: stream,
+            deadline: Instant::now() + timeout,
         };
         if !self.password.is_empty() {
             connection.command(&["AUTH", &self.password])?;
@@ -89,8 +90,11 @@ impl ValkeyServer {
     }
 
     /// Every key/value row, like upstream search_keys().
-    fn search_keys(&self, query: &str) -> Result<Vec<BTreeMap<String, String>>, EngineError> {
-        let mut connection = self.connect()?;
+    fn search_keys(
+        &self,
+        connection: &mut Connection,
+        query: &str,
+    ) -> Result<Vec<BTreeMap<String, String>>, EngineError> {
         let pattern = format!("*{query}*");
         let reply = connection.command(&["SCAN", "0", "MATCH", &pattern, "COUNT", "100"])?;
         let Reply::Array(items) = reply else {
@@ -169,7 +173,7 @@ impl Engine for ValkeyServer {
         }
         let mut connection = self.connect()?;
         if !self.exact_match_only {
-            return Ok(rows_to_items(self.search_keys(&text)?));
+            return Ok(rows_to_items(self.search_keys(&mut connection, &text)?));
         }
         let mut rows = Vec::new();
         if let Reply::Array(pairs) = connection.command(&["HGETALL", &text])? {
@@ -239,28 +243,44 @@ enum Reply {
 struct Connection {
     reader: BufReader<TcpStream>,
     writer: TcpStream,
+    /// A single deadline bounds all commands in one search.
+    deadline: Instant,
 }
 
 impl Connection {
+    fn io_error(error: std::io::Error) -> EngineError {
+        // Blocking socket timeouts are WouldBlock on some Unix platforms and
+        // TimedOut on others. Both mean this connection's I/O budget expired.
+        if matches!(
+            error.kind(),
+            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+        ) {
+            EngineError::Message("valkey: search I/O deadline exceeded".into())
+        } else {
+            EngineError::Message(format!("valkey: {error}"))
+        }
+    }
+
     fn command(&mut self, args: &[&str]) -> Result<Reply, EngineError> {
+        if Instant::now() >= self.deadline {
+            return Err(EngineError::Message(
+                "valkey: search deadline exceeded".into(),
+            ));
+        }
         let mut request = format!("*{}\r\n", args.len());
         for argument in args {
             request.push_str(&format!("${}$\r\n{}\r\n", argument.len(), argument));
         }
         self.writer
             .write_all(request.as_bytes())
-            .map_err(|error| EngineError::Message(format!("valkey: {error}")))?;
-        self.writer
-            .flush()
-            .map_err(|error| EngineError::Message(format!("valkey: {error}")))?;
+            .map_err(Self::io_error)?;
+        self.writer.flush().map_err(Self::io_error)?;
         self.read_reply()
     }
 
     fn read_reply(&mut self) -> Result<Reply, EngineError> {
         let mut line = String::new();
-        self.reader
-            .read_line(&mut line)
-            .map_err(|error| EngineError::Message(format!("valkey: {error}")))?;
+        self.reader.read_line(&mut line).map_err(Self::io_error)?;
         if line.is_empty() {
             return Err(EngineError::Message("valkey: connection closed".into()));
         }
@@ -278,7 +298,7 @@ impl Connection {
                     let mut buffer = vec![0u8; length as usize + 2];
                     self.reader
                         .read_exact(&mut buffer)
-                        .map_err(|error| EngineError::Message(format!("valkey: {error}")))?;
+                        .map_err(Self::io_error)?;
                     buffer.truncate(length as usize);
                     Reply::Bulk(Some(String::from_utf8_lossy(&buffer).to_string()))
                 }
@@ -299,6 +319,41 @@ impl Connection {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn expired_search_deadline_rejects_commands_before_writing() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let stream = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (mut peer, _) = listener.accept().unwrap();
+        peer.set_nonblocking(true).unwrap();
+        let mut connection = Connection {
+            reader: BufReader::new(stream.try_clone().unwrap()),
+            writer: stream,
+            deadline: Instant::now(),
+        };
+        let error = connection.command(&["PING"]).unwrap_err();
+        assert!(error.to_string().contains("search deadline exceeded"));
+        assert_eq!(
+            peer.read(&mut [0; 1]).unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+    }
+
+    #[test]
+    fn socket_deadline_errors_are_portable() {
+        for kind in [std::io::ErrorKind::WouldBlock, std::io::ErrorKind::TimedOut] {
+            assert!(
+                Connection::io_error(std::io::Error::from(kind))
+                    .to_string()
+                    .contains("deadline")
+            );
+        }
+        assert!(
+            !Connection::io_error(std::io::Error::from(std::io::ErrorKind::ConnectionReset))
+                .to_string()
+                .contains("deadline")
+        );
+    }
 
     fn engine() -> Arc<ValkeyServer> {
         let mut config = EngineConfig::new("valkey", "valkey_server", "", &["general"]);

@@ -80,37 +80,7 @@ pub fn proxied_url(base_url: &str, secret: &str, url: &str) -> String {
 
 /// Whether a URL may be fetched by the proxy (public http/https host only).
 pub fn is_public_url(url: &str) -> bool {
-    let Ok(parsed) = url::Url::parse(url) else {
-        return false;
-    };
-    if !matches!(parsed.scheme(), "http" | "https") {
-        return false;
-    }
-    let Some(host) = parsed.host_str() else {
-        return false;
-    };
-    let host = host.trim_matches(['[', ']']).to_lowercase();
-    if host == "localhost" || host.ends_with(".local") || host == "::1" || host == "0.0.0.0" {
-        return false;
-    }
-    match host.parse::<std::net::IpAddr>() {
-        Ok(address) => is_public_address(address),
-        Err(_) => true,
-    }
-}
-
-fn is_public_address(address: std::net::IpAddr) -> bool {
-    match address {
-        std::net::IpAddr::V4(address) => {
-            !(address.is_private()
-                || address.is_loopback()
-                || address.is_link_local()
-                || address.is_broadcast()
-                || address.is_documentation()
-                || address.is_unspecified())
-        }
-        std::net::IpAddr::V6(address) => !(address.is_loopback() || address.is_unspecified()),
-    }
+    url::Url::parse(url).is_ok_and(|parsed| crate::media_fetch::is_public_media_url(&parsed))
 }
 
 /// `GET /image_proxy`.
@@ -147,11 +117,10 @@ pub async fn handler(
     let response = match state
         .searcher
         .network
-        .fetch(
+        .fetch_image(
             request,
             std::time::Duration::from_secs_f64(settings.outgoing.request_timeout.max(1.0)),
-            None,
-            None,
+            MAX_SIZE,
         )
         .await
     {
@@ -160,17 +129,19 @@ pub async fn handler(
             return (StatusCode::BAD_GATEWAY, format!("upstream error: {error}")).into_response();
         }
     };
-    if response.body.len() > MAX_SIZE {
-        return (StatusCode::BAD_GATEWAY, "image is too large").into_response();
-    }
-    let content_type = response
-        .header("content-type")
-        .unwrap_or("application/octet-stream")
-        .to_string();
-    if !content_type.starts_with("image/") {
+    let Some(content_type) = image_content_type(response.header("content-type")) else {
         return (StatusCode::BAD_GATEWAY, "upstream did not return an image").into_response();
-    }
+    };
     sandboxed_image_response(content_type, 86_400, response.body)
+}
+
+/// Normalize an upstream image Content-Type to its validated bare media type;
+/// never reflect parameters or malformed subtypes into a proxy response.
+pub(super) fn image_content_type(raw: Option<&str>) -> Option<String> {
+    let essence = raw?.split(';').next()?.trim().to_ascii_lowercase();
+    let subtype = essence.strip_prefix("image/")?;
+    let token = |c: char| c.is_ascii_alphanumeric() || "!#$&-^_.+".contains(c);
+    (!subtype.is_empty() && subtype.chars().all(token)).then_some(essence)
 }
 
 /// Isolate proxied images, including SVG documents opened directly, from our origin.
@@ -217,6 +188,41 @@ mod tests {
         assert!(!is_public_url("http://localhost/x.png"));
         assert!(!is_public_url("file:///etc/passwd"));
         assert!(is_public_url("https://upload.wikimedia.org/x.png"));
+    }
+
+    #[test]
+    fn only_image_media_types_are_accepted_and_normalised() {
+        let ct = |raw| image_content_type(Some(raw));
+        assert_eq!(ct("image/png").as_deref(), Some("image/png"));
+        assert_eq!(
+            ct(" Image/SVG+XML ; charset=utf-8").as_deref(),
+            Some("image/svg+xml")
+        );
+        assert_eq!(ct("image/x-icon").as_deref(), Some("image/x-icon"));
+        assert_eq!(ct("text/html"), None);
+        assert_eq!(ct("image/"), None);
+        assert_eq!(ct("image/svg+xml\"><script>"), None);
+        assert_eq!(ct("imagex/png"), None);
+        assert_eq!(image_content_type(None), None);
+    }
+
+    #[test]
+    fn proxied_images_cannot_become_active_documents() {
+        let response = sandboxed_image_response(
+            "image/svg+xml".into(),
+            1,
+            b"<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>".to_vec(),
+        );
+        let headers = response.headers();
+        assert_eq!(headers[header::CONTENT_TYPE], "image/svg+xml");
+        assert_eq!(headers[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
+        let csp = headers[header::CONTENT_SECURITY_POLICY].to_str().unwrap();
+        assert!(csp.contains("default-src 'none'"));
+        assert!(
+            csp.split(';')
+                .any(|directive| directive.trim() == "sandbox")
+        );
+        assert!(!csp.contains("allow-scripts"));
     }
 
     #[test]

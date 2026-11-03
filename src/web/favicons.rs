@@ -22,7 +22,9 @@ use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 
 use super::AppState;
-use super::image_proxy::{is_public_url, is_valid, sandboxed_image_response, signature};
+use super::image_proxy::{
+    image_content_type, is_public_url, is_valid, sandboxed_image_response, signature,
+};
 use crate::engine::EngineRequest;
 
 /// The path of the favicon proxy (upstream's 'favicon_proxy' route).
@@ -93,7 +95,15 @@ pub async fn handler(
     Query(params): Query<FaviconParams>,
     _headers: HeaderMap,
 ) -> Response {
-    let secret = state.settings().server.secret_key.clone();
+    let settings = state.settings();
+    if !settings.server.image_proxy {
+        return (
+            StatusCode::FORBIDDEN,
+            "the image proxy is disabled on this instance",
+        )
+            .into_response();
+    }
+    let secret = settings.server.secret_key.clone();
     let Some(origin) = origin_of(&params.url) else {
         return (
             StatusCode::FORBIDDEN,
@@ -128,19 +138,13 @@ async fn fetch_favicon(state: &AppState, url: &str) -> Option<(String, Vec<u8>)>
     let response = state
         .searcher
         .network
-        .fetch(request, timeout, None, None)
+        .fetch_image(request, timeout, MAX_SIZE)
         .await
         .ok()?;
-    if response.body.is_empty() || response.body.len() > MAX_SIZE {
+    if response.body.is_empty() {
         return None;
     }
-    let content_type = response
-        .header("content-type")
-        .unwrap_or_default()
-        .to_string();
-    if !content_type.starts_with("image/") {
-        return None;
-    }
+    let content_type = image_content_type(response.header("content-type"))?;
     Some((content_type, response.body))
 }
 
@@ -151,11 +155,14 @@ mod tests {
     use crate::settings::Settings;
 
     fn state() -> AppState {
-        AppState::new(Searcher::new(Settings::defaults()).expect("searcher"))
+        let mut settings = Settings::defaults();
+        settings.server.image_proxy = true;
+        settings.server.secret_key = "favicon-test-key".into();
+        AppState::new(Searcher::new(settings).expect("searcher"))
     }
 
     fn secret() -> String {
-        Settings::defaults().server.secret_key
+        "favicon-test-key".into()
     }
 
     #[test]
@@ -217,6 +224,21 @@ mod tests {
         assert_eq!(CACHE_MAX_AGE, 604_800);
         assert_eq!(CANDIDATE_PATHS, &["/favicon.ico", "/favicon.png"]);
         const { assert!(MAX_SIZE >= 64 * 1024) };
+    }
+
+    #[tokio::test]
+    async fn disabled_image_proxy_also_disables_favicons() {
+        let state = AppState::new(Searcher::new(Settings::defaults()).unwrap());
+        let response = handler(
+            State(state),
+            Query(FaviconParams {
+                url: "https://example.com".into(),
+                h: Some(signature(&secret(), "https://example.com")),
+            }),
+            HeaderMap::new(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 
     #[tokio::test]

@@ -79,62 +79,6 @@ async fn get_uri(app: &Router, uri: &str) -> (StatusCode, String, axum::http::He
 }
 
 #[tokio::test]
-async fn image_and_favicon_proxies_sandbox_svg_without_changing_image_bytes() {
-    use saferustxng::web::image_proxy::signature;
-
-    for (content_type, payload) in [
-        (
-            "image/svg+xml",
-            r#"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(document.cookie)"><script>alert(1)</script><rect width="10" height="10"/></svg>"#,
-        ),
-        ("image/png", "raster image bytes"),
-    ] {
-        // A local HTTP proxy supplies bytes for public URLs without Internet access.
-        let upstream =
-            Router::new().fallback(get(move |headers: axum::http::HeaderMap| async move {
-                assert_eq!(headers[header::ACCEPT], "image/*");
-                ([(header::CONTENT_TYPE, content_type)], payload)
-            }));
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
-        let mut settings = settings_for("http://unused.invalid");
-        settings.server.image_proxy = true;
-        settings
-            .outgoing
-            .proxies
-            .insert("http".into(), format!("http://{address}"));
-        let app = app(settings);
-        for (path, url, cache_seconds) in [
-            ("image_proxy", "http://example.com/image", 86_400),
-            ("favicon_proxy", "http://example.com", 604_800),
-        ] {
-            let uri = format!(
-                "/{path}?url={}&h={}",
-                saferustxng::engine::util::encode(url),
-                signature("test", url),
-            );
-            let (status, body, headers) = get_uri(&app, &uri).await;
-            assert_eq!(status, StatusCode::OK);
-            assert_eq!(body, payload);
-            assert_eq!(headers[header::CONTENT_TYPE], content_type);
-            assert_eq!(
-                headers[header::CACHE_CONTROL],
-                format!("max-age={cache_seconds}")
-            );
-            assert_eq!(headers[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
-            assert_eq!(headers[header::REFERRER_POLICY], "no-referrer");
-            let policy = headers[header::CONTENT_SECURITY_POLICY].to_str().unwrap();
-            assert_eq!(
-                policy,
-                "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
-            );
-        }
-        server.abort();
-    }
-}
-
-#[tokio::test]
 async fn json_search_returns_merged_results() {
     let base_url = start_fake_engine().await;
     let app = app(settings_for(&base_url));
@@ -313,6 +257,73 @@ async fn html_search_renders_the_result_page() {
     assert!(body.contains("example.com/rust"));
     assert!(body.contains("name=\"q\""));
     assert!(body.contains("mwmbl"));
+}
+
+#[tokio::test]
+async fn html_search_rejects_executable_result_and_infobox_urls() {
+    let upstream = Router::new()
+        .route(
+            "/api/v1/search/",
+            get(|| async {
+                axum::Json(serde_json::json!([
+                    {"url": "javascript:void(0)", "title": "unsafe"},
+                    {"url": "JaVaScRiPt:void(0)", "title": "unsafe case"},
+                    {"url": "java\nscript:void(0)", "title": "unsafe whitespace"},
+                    {"url": "https://example.com/safe", "title": "safe"},
+                    {"url": "/docs/a.pdf", "title": "local document"}
+                ]))
+            }),
+        )
+        .route(
+            "/",
+            get(|| async {
+                axum::Json(serde_json::json!({
+                    "Heading": "reference",
+                    "Abstract": "reference content",
+                    "AbstractURL": "https://example.com/reference",
+                    "AbstractSource": "safe reference",
+                    "DefinitionURL": "JaVaScRiPt:void(0)",
+                    "DefinitionSource": "unsafe reference"
+                }))
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+
+    let mut settings = settings_for(&format!("http://{address}/api/v1"));
+    let mut definitions =
+        EngineConfig::new("definitions", "duckduckgo_definitions", "dd", &["general"]);
+    definitions.base_url = Some(format!("http://{address}"));
+    settings.engines.push(definitions);
+    let app = app(settings);
+    let (status, body, _) = get_uri(&app, "/search?q=example").await;
+    assert_eq!(status, StatusCode::OK);
+    // Inspect our fixed output template without restoring the removed HTML parser.
+    let result_links = regex::Regex::new(r#"<a class="result-title" href="([^"]*)""#).unwrap();
+    let infoboxes = regex::Regex::new(r#"(?s)<section class="infobox">(.*?)</section>"#).unwrap();
+    let anchors = regex::Regex::new(r#"<a href="([^"]*)""#).unwrap();
+    let mut links: Vec<_> = result_links
+        .captures_iter(&body)
+        .map(|capture| capture.get(1).unwrap().as_str())
+        .collect();
+    for infobox in infoboxes.captures_iter(&body) {
+        links.extend(
+            anchors
+                .captures_iter(infobox.get(1).unwrap().as_str())
+                .map(|capture| capture.get(1).unwrap().as_str()),
+        );
+    }
+    links.sort_unstable();
+    assert_eq!(
+        links,
+        vec![
+            "/docs/a.pdf",
+            "https://example.com/reference",
+            "https://example.com/reference",
+            "https://example.com/safe",
+        ]
+    );
 }
 
 #[tokio::test]
@@ -608,6 +619,68 @@ async fn the_rate_limiter_answers_429_after_the_limit() {
     // /healthz is not limited
     let (status, _, _) = get_uri(&app, "/healthz").await;
     assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn research_and_search_share_limits_before_outbound_requests() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let engine_calls = Arc::new(AtomicUsize::new(0));
+    let llm_calls = Arc::new(AtomicUsize::new(0));
+    let engine_counter = engine_calls.clone();
+    let llm_counter = llm_calls.clone();
+    let upstream = Router::new()
+        .route(
+            "/api/v1/search/",
+            get(move || {
+                engine_counter.fetch_add(1, Ordering::SeqCst);
+                async { axum::Json(serde_json::json!([])) }
+            }),
+        )
+        .route(
+            "/chat/completions",
+            axum::routing::post(move || {
+                llm_counter.fetch_add(1, Ordering::SeqCst);
+                async {
+                    axum::Json(serde_json::json!({
+                        "choices": [{"message": {"content": "[\"rust\"]"}}]
+                    }))
+                }
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let search = "/search?q=rust&format=json";
+    let research = "/research?q=rust&max_queries=1";
+
+    for first in [search, research] {
+        engine_calls.store(0, Ordering::SeqCst);
+        llm_calls.store(0, Ordering::SeqCst);
+        let mut settings = settings_for(&format!("{origin}/api/v1"));
+        settings.server.limiter = LimiterSettings::Enabled(true);
+        settings.server.limiter_max = 1;
+        settings.search.site_scoped_retry = false;
+        settings.research.enabled = true;
+        settings.research.base_url = origin.clone();
+        settings.research.api_key = "test-key".into();
+        let app = app(settings);
+
+        let (status, _, _) = get_uri(&app, first).await;
+        assert_eq!(status, StatusCode::OK, "{first}");
+        let expected_llm_calls = if first == research { 2 } else { 0 };
+        assert_eq!(engine_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(llm_calls.load(Ordering::SeqCst), expected_llm_calls);
+
+        for blocked in [research, search] {
+            let (status, _, headers) = get_uri(&app, blocked).await;
+            assert_eq!(status, StatusCode::TOO_MANY_REQUESTS, "{blocked}");
+            assert!(headers.contains_key(header::RETRY_AFTER));
+            assert_eq!(engine_calls.load(Ordering::SeqCst), 1);
+            assert_eq!(llm_calls.load(Ordering::SeqCst), expected_llm_calls);
+        }
+    }
+    server.abort();
 }
 
 #[tokio::test]

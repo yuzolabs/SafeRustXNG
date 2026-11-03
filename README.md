@@ -163,7 +163,8 @@ saferustxng --config /path/to/settings.toml
 ```
 
 See [settings.toml](settings.toml) and [configuration details](docs/PORTING.md).
-Partial configuration merging has a known issue that can reset unspecified values; see the audit below.
+Raw partial-configuration merging now preserves unspecified values. With `use_default_settings = false`,
+an empty or omitted engine list stays empty instead of restoring default engines.
 
 - `/healthz`: process health. A successful check does not guarantee upstream search engines are working.
 - `/config`: registered engines and public configuration information.
@@ -173,9 +174,15 @@ Partial configuration merging has a known issue that can reset unspecified value
 - Optional Valkey/Redis cache and database-backed engines support additional deployments.
 - The experimental `saferustxng-index` local index is disabled by default and only supports `search` and `stats` on an existing index (HTML crawling is not supported).
 
-The [2026-11-02 audit](docs/AUDIT-2026-11-02.md) records open issues including SSRF validation,
-unsafe result URL schemes, response-size limits, and cache isolation. Use loopback for local agent setup;
-review these findings before exposing the service beyond loopback.
+The [2026-11-02 audit](docs/AUDIT-2026-11-02.md) is a historical snapshot, not a current closure checklist.
+Scoped backports address dangerous result URLs, proxy fallback, cache identity/deadlines, `/research` limits,
+and calculator budgets. The #77 backport adds public-only media DNS/address/redirect checks, fails media reads
+closed when proxies are configured, and disables favicon fetching with `image_proxy = false`; configured private
+search backends remain supported. Blank or historical default signing keys are now randomized per instance;
+use a shared operator-provided `server.secret_key` or `SEARXNG_SECRET` for multiple workers or stable signatures
+across restarts. See [Security](SECURITY.md) for scope and dependency findings. These fixes do
+not close every audit finding or establish application safety. Use loopback for local agents and review the
+remaining limitations before exposing the service.
 
 ## Measured search performance
 

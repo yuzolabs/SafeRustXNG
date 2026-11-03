@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use reqwest::header::{HeaderMap, HeaderValue};
+use sha2::{Digest, Sha256};
 use tracing::debug;
 
 use crate::cache::{Cache, CachedResponse};
@@ -29,6 +30,8 @@ const USER_AGENT_TEMPLATE: &str =
 pub enum NetworkError {
     #[error("request timed out")]
     Timeout,
+    #[error("response exceeds the {0} byte decoded body limit")]
+    TooLarge(usize),
     #[error("http status {status}")]
     Status {
         status: u16,
@@ -48,6 +51,7 @@ impl NetworkError {
     pub fn failure_kind(&self) -> FailureKind {
         match self {
             Self::Timeout => FailureKind::Timeout,
+            Self::TooLarge(_) => FailureKind::Other,
             Self::Build(_) => FailureKind::Other,
             Self::Transport(_) => FailureKind::Other,
             Self::UnsupportedContentType(_) => FailureKind::Parse,
@@ -111,6 +115,9 @@ pub fn classify_status(status: u16, body: &str) -> FailureKind {
 /// The HTTP client used by every engine.
 pub struct Network {
     client: reqwest::Client,
+    /// Direct-only client for third-party media; no engine host exemptions.
+    media_client: reqwest::Client,
+    media_proxy_blocked: bool,
     /// Clients for engines that need their own proxy, keyed by proxy URL.
     proxied: std::sync::Mutex<std::collections::HashMap<String, reqwest::Client>>,
     /// Settings kept so a proxied client can be rebuilt on demand.
@@ -140,49 +147,36 @@ fn build_client(
     if !outgoing.enable_http2 {
         builder = builder.http1_only();
     }
-    for (scheme, proxy) in &outgoing.proxies {
-        let proxy =
-            reqwest::Proxy::all(proxy).map_err(|error| NetworkError::Build(error.to_string()))?;
-        tracing::debug!(scheme, "configured proxy");
-        builder = builder.proxy(proxy);
-    }
     if let Some(proxy) = extra_proxy {
         builder = builder.proxy(proxy);
+    } else {
+        for (scheme, proxy) in &outgoing.proxies {
+            let proxy = reqwest::Proxy::all(proxy)
+                .map_err(|error| NetworkError::Build(error.to_string()))?;
+            tracing::debug!(scheme, "configured proxy");
+            builder = builder.proxy(proxy);
+        }
     }
     builder
         .build()
         .map_err(|error| NetworkError::Build(error.to_string()))
 }
 impl Network {
+    #[cfg(test)]
+    pub(crate) fn with_test_media_client(mut self, client: reqwest::Client) -> Self {
+        self.media_client = client;
+        self
+    }
+
     pub fn from_settings(settings: &Settings) -> Result<Self, NetworkError> {
         let outgoing = &settings.outgoing;
-        let mut builder = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::limited(outgoing.max_redirects))
-            .timeout(Duration::from_secs_f64(
-                outgoing.max_request_timeout.max(1.0),
-            ))
-            .connect_timeout(Duration::from_secs_f64(
-                (outgoing.request_timeout / 2.0).clamp(1.0, 5.0),
-            ))
-            .pool_max_idle_per_host(outgoing.pool_maxsize)
-            .danger_accept_invalid_certs(!outgoing.verify)
-            .user_agent(default_user_agent());
-        if !outgoing.enable_http2 {
-            builder = builder.http1_only();
-        }
-        for (scheme, proxy) in &outgoing.proxies {
-            // One proxy per scheme (upstream's \`outgoing.proxies\`); the scheme key
-            // selects which requests it applies to in SearXNG, reqwest proxies all.
-            let proxy = reqwest::Proxy::all(proxy)
-                .map_err(|error| NetworkError::Build(error.to_string()))?;
-            tracing::debug!(scheme, "configured proxy");
-            builder = builder.proxy(proxy);
-        }
-        let client = builder
-            .build()
-            .map_err(|error| NetworkError::Build(error.to_string()))?;
+        let client = build_client(outgoing, None)?;
+        let (media_client, media_proxy_blocked) =
+            crate::media_fetch::public_media_client(outgoing, &[]).map_err(NetworkError::Build)?;
         Ok(Self {
             client,
+            media_client,
+            media_proxy_blocked,
             proxied: std::sync::Mutex::new(std::collections::HashMap::new()),
             outgoing: outgoing.clone(),
             user_agents: build_user_agents(),
@@ -196,26 +190,22 @@ impl Network {
     ///
     /// Engines share the default client; a per-engine proxy gets its own so a
     /// blocked engine can be routed elsewhere without moving the rest.
-    fn client_for(&self, proxy: Option<&str>) -> reqwest::Client {
+    fn client_for(&self, proxy: Option<&str>) -> Result<reqwest::Client, NetworkError> {
         let Some(proxy) = proxy.map(str::trim).filter(|value| !value.is_empty()) else {
-            return self.client.clone();
+            return Ok(self.client.clone());
         };
-        tracing::debug!(proxy, "using a per-engine proxy");
         if let Ok(cache) = self.proxied.lock() {
             if let Some(client) = cache.get(proxy) {
-                return client.clone();
+                return Ok(client.clone());
             }
         }
-        let Ok(configured) = reqwest::Proxy::all(proxy) else {
-            return self.client.clone();
-        };
-        let Ok(client) = build_client(&self.outgoing, Some(configured)) else {
-            return self.client.clone();
-        };
+        let configured =
+            reqwest::Proxy::all(proxy).map_err(|error| NetworkError::Build(error.to_string()))?;
+        let client = build_client(&self.outgoing, Some(configured))?;
         if let Ok(mut cache) = self.proxied.lock() {
             cache.insert(proxy.to_string(), client.clone());
         }
-        client
+        Ok(client)
     }
 
     /// A different user agent on every call, like upstream's rotation.
@@ -259,24 +249,68 @@ impl Network {
         cache: Option<&Cache>,
         proxy: Option<&str>,
     ) -> Result<EngineResponse, NetworkError> {
-        let client = self.client_for(proxy);
-        let body_repr = if let Some(json) = &request.json {
-            json.to_string()
+        self.fetch_inner(request, timeout, cache, proxy, None).await
+    }
+
+    /// Fetch an uncached image with a body limit.
+    pub(crate) async fn fetch_image(
+        &self,
+        request: EngineRequest,
+        timeout: Duration,
+        max_bytes: usize,
+    ) -> Result<EngineResponse, NetworkError> {
+        self.fetch_inner(request, timeout, None, None, Some(max_bytes))
+            .await
+    }
+
+    async fn fetch_inner(
+        &self,
+        request: EngineRequest,
+        timeout: Duration,
+        cache: Option<&Cache>,
+        proxy: Option<&str>,
+        max_bytes: Option<usize>,
+    ) -> Result<EngineResponse, NetworkError> {
+        let deadline = tokio::time::Instant::now() + timeout;
+        let client = if max_bytes.is_some() {
+            if self.media_proxy_blocked {
+                return Err(NetworkError::Build(
+                    "media reads require direct connections; configured proxies cannot validate destinations".into(),
+                ));
+            }
+            let url = reqwest::Url::parse(&request.url)
+                .map_err(|error| NetworkError::Build(error.to_string()))?;
+            if !crate::media_fetch::is_public_media_url(&url) {
+                return Err(NetworkError::Build(
+                    "only public http(s) media can be fetched".into(),
+                ));
+            }
+            self.media_client.clone()
         } else {
-            request
-                .form
-                .iter()
-                .map(|(key, value)| format!("{key}={value}"))
-                .collect::<Vec<_>>()
-                .join("&")
+            self.client_for(proxy)?
         };
-        let method = match request.method {
-            Method::Get => "GET",
-            Method::Post => "POST",
-        };
-        let cache_key = Cache::key(method, &request.url, &body_repr);
+        let mut headers: Vec<_> = request
+            .headers
+            .iter()
+            .map(|(name, value)| (name.as_str(), value.as_bytes()))
+            .collect();
+        headers.sort_by_key(|(name, _)| *name);
+        let identity = serde_json::to_vec(&(
+            request.method,
+            &request.url,
+            headers,
+            &request.cookies,
+            &request.form,
+            &request.json,
+            proxy.map(str::trim),
+        ))
+        .map_err(|error| NetworkError::Build(error.to_string()))?;
+        let cache_key = format!("{:x}", Sha256::digest(identity));
         if let Some(cache) = cache {
-            if let Some(cached) = cache.get(&cache_key).await {
+            if let Some(cached) = tokio::time::timeout_at(deadline, cache.get(&cache_key))
+                .await
+                .map_err(|_| NetworkError::Timeout)?
+            {
                 validate_machine_content_type(
                     cached.headers.get("content-type").map(String::as_str),
                 )?;
@@ -290,7 +324,6 @@ impl Network {
             }
         }
 
-        let deadline = tokio::time::Instant::now() + timeout;
         let mut attempt = 0;
         loop {
             attempt += 1;
@@ -299,7 +332,7 @@ impl Network {
                 return Err(NetworkError::Timeout);
             }
             let outcome = self
-                .send(client.clone(), &request, remaining)
+                .send(client.clone(), &request, remaining, max_bytes)
                 .await
                 .and_then(|response| {
                     if response.status >= 400 {
@@ -318,9 +351,11 @@ impl Network {
             match outcome {
                 Ok(response) => {
                     if let Some(cache) = cache {
-                        if response.status == 200 && !response.body.is_empty() {
-                            cache
-                                .set(
+                        if response.status == 200
+                            && !response.body.is_empty()
+                            && tokio::time::timeout_at(
+                                deadline,
+                                cache.set(
                                     &cache_key,
                                     CachedResponse {
                                         status: response.status,
@@ -328,8 +363,12 @@ impl Network {
                                         headers: response.headers.clone(),
                                         body: std::sync::Arc::new(response.body.clone()),
                                     },
-                                )
-                                .await;
+                                ),
+                            )
+                            .await
+                            .is_err()
+                        {
+                            debug!(url = %request.url, "cache write timed out");
                         }
                     }
                     return Ok(response);
@@ -360,6 +399,7 @@ impl Network {
         client: reqwest::Client,
         request: &EngineRequest,
         timeout: Duration,
+        max_bytes: Option<usize>,
     ) -> Result<EngineResponse, NetworkError> {
         let method = match request.method {
             Method::Get => reqwest::Method::GET,
@@ -410,7 +450,7 @@ impl Network {
         }
 
         let send = async {
-            let response = builder.send().await.map_err(|error| {
+            let mut response = builder.send().await.map_err(|error| {
                 if error.is_timeout() {
                     NetworkError::Timeout
                 } else {
@@ -447,11 +487,26 @@ impl Network {
                 }
                 return Err(error);
             }
-            let body = response
-                .bytes()
-                .await
-                .map_err(|error| NetworkError::Transport(error.to_string()))?
-                .to_vec();
+            let body = if let Some(limit) = max_bytes {
+                let mut body = Vec::new();
+                while let Some(chunk) = response
+                    .chunk()
+                    .await
+                    .map_err(|error| NetworkError::Transport(error.to_string()))?
+                {
+                    if chunk.len() > limit - body.len() {
+                        return Err(NetworkError::TooLarge(limit));
+                    }
+                    body.extend_from_slice(&chunk);
+                }
+                body
+            } else {
+                response
+                    .bytes()
+                    .await
+                    .map_err(|error| NetworkError::Transport(error.to_string()))?
+                    .to_vec()
+            };
             Ok(EngineResponse {
                 status,
                 final_url,
@@ -473,7 +528,9 @@ fn is_retryable(error: &NetworkError) -> bool {
         // a timeout already consumed the whole engine budget
         NetworkError::Timeout => false,
         NetworkError::Status { status, .. } => *status == 429 || *status >= 500,
-        NetworkError::Build(_) | NetworkError::UnsupportedContentType(_) => false,
+        NetworkError::Build(_)
+        | NetworkError::TooLarge(_)
+        | NetworkError::UnsupportedContentType(_) => false,
     }
 }
 
@@ -504,10 +561,157 @@ fn build_user_agents() -> Vec<String> {
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn invalid_engine_proxy_does_not_contact_origin() {
+        use axum::Router;
+        use std::sync::Arc;
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let requests = Arc::clone(&calls);
+        let app = Router::new().fallback(move || {
+            requests.fetch_add(1, Ordering::Relaxed);
+            async { "origin" }
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let mut network = Network::from_settings(&Settings::defaults()).unwrap();
+        network.client = reqwest::Client::builder().no_proxy().build().unwrap();
+
+        let result = network
+            .fetch(
+                EngineRequest::get(url),
+                Duration::from_secs(2),
+                None,
+                Some("http://[::1"),
+            )
+            .await;
+        server.abort();
+        assert_eq!(calls.load(Ordering::Relaxed), 0);
+        assert!(matches!(result, Err(NetworkError::Build(_))));
+    }
+
+    #[tokio::test]
+    async fn engine_proxy_overrides_global_proxy() {
+        use axum::Router;
+
+        let mut proxies = Vec::new();
+        let mut servers = Vec::new();
+        for name in ["global", "engine"] {
+            let app = Router::new().fallback(move || async move { name });
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            proxies.push(format!("http://{}", listener.local_addr().unwrap()));
+            servers.push(tokio::spawn(async move {
+                axum::serve(listener, app).await.unwrap()
+            }));
+        }
+        let mut settings = Settings::defaults();
+        settings
+            .outgoing
+            .proxies
+            .insert("http".into(), proxies[0].clone());
+        let network = Network::from_settings(&settings).unwrap();
+        let mut responses = Vec::new();
+        for proxy in [None, Some(proxies[1].as_str()), Some(proxies[1].as_str())] {
+            responses.push(
+                network
+                    .fetch(
+                        EngineRequest::get("http://example.invalid/"),
+                        Duration::from_secs(2),
+                        None,
+                        proxy,
+                    )
+                    .await,
+            );
+        }
+        for server in servers {
+            server.abort();
+        }
+        let bodies: Vec<_> = responses
+            .into_iter()
+            .map(|response| response.unwrap().text().to_string())
+            .collect();
+        assert_eq!(bodies, ["global", "engine", "engine"]);
+    }
+
+    #[tokio::test]
+    async fn cached_responses_respect_request_cookies_headers_and_forms() {
+        use axum::{Router, routing::post};
+        use std::sync::Arc;
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let requests = Arc::clone(&calls);
+        let app = Router::new().route(
+            "/",
+            post(move |headers: HeaderMap, body: String| {
+                requests.fetch_add(1, Ordering::Relaxed);
+                async move {
+                    format!(
+                        "{}|{}|{}",
+                        headers[reqwest::header::COOKIE].to_str().unwrap(),
+                        headers[reqwest::header::ACCEPT_LANGUAGE].to_str().unwrap(),
+                        body
+                    )
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let network = Network::from_settings(&Settings::defaults()).unwrap();
+        let cache = Cache::default();
+
+        for (safe, language, form, expected) in [
+            ("off", "ja", vec![], "safesearch=off|ja|"),
+            ("strict", "ja", vec![], "safesearch=strict|ja|"),
+            ("strict", "en", vec![], "safesearch=strict|en|"),
+            (
+                "strict",
+                "en",
+                vec![("q", "cats&safe=0"), ("safe", "2")],
+                "safesearch=strict|en|q=cats%26safe%3D0&safe=2",
+            ),
+            (
+                "strict",
+                "en",
+                vec![("q", "cats"), ("safe", "0&safe=2")],
+                "safesearch=strict|en|q=cats&safe=0%26safe%3D2",
+            ),
+        ] {
+            let request = EngineRequest::post(&url)
+                .cookie("safesearch", safe)
+                .header("Accept-Language", language)
+                .header("Accept", "text/plain")
+                .form(
+                    form.into_iter()
+                        .map(|(key, value)| (key.into(), value.into()))
+                        .collect(),
+                );
+            let response = network
+                .fetch(request, Duration::from_secs(2), Some(&cache), None)
+                .await
+                .unwrap();
+            assert_eq!(response.text(), expected);
+        }
+        let repeated = EngineRequest::post(&url)
+            .header("Accept", "text/plain")
+            .header("Accept-Language", "en")
+            .cookie("safesearch", "strict");
+        let response = network
+            .fetch(repeated, Duration::from_secs(2), Some(&cache), None)
+            .await
+            .unwrap();
+        assert_eq!(response.text(), "safesearch=strict|en|");
+        assert_eq!(calls.load(Ordering::Relaxed), 5);
+        server.abort();
+    }
+
     #[test]
     fn user_agents_are_diverse_and_plausible() {
         let network = Network {
             client: reqwest::Client::new(),
+            media_client: reqwest::Client::new(),
+            media_proxy_blocked: false,
             proxied: std::sync::Mutex::new(std::collections::HashMap::new()),
             outgoing: crate::settings::Outgoing::default(),
             user_agents: build_user_agents(),
@@ -519,6 +723,211 @@ mod tests {
         let second = network.user_agent();
         assert!(first.starts_with("Mozilla/5.0"));
         assert_ne!(first, second);
+    }
+
+    #[tokio::test]
+    async fn media_does_not_inherit_private_engine_endpoints() {
+        use axum::{Router, routing::get};
+        use std::sync::Arc;
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counter = hits.clone();
+        let app = Router::new().route(
+            "/",
+            get(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+                async { "engine" }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let mut settings = Settings::defaults();
+        let mut engine = crate::settings::EngineConfig::new("private", "mwmbl", "", &["general"]);
+        engine.base_url = Some(url.clone());
+        settings.engines = vec![engine];
+        let network = Network::from_settings(&settings).unwrap();
+        assert!(matches!(
+            network
+                .fetch_image(EngineRequest::get(&url), Duration::from_secs(2), 32)
+                .await,
+            Err(NetworkError::Build(_))
+        ));
+        assert_eq!(hits.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            network
+                .fetch(EngineRequest::get(&url), Duration::from_secs(2), None, None)
+                .await
+                .unwrap()
+                .text(),
+            "engine"
+        );
+        assert_eq!(hits.load(Ordering::SeqCst), 1);
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn media_redirects_cannot_contact_private_targets() {
+        use axum::{Router, routing::get};
+        use std::sync::Arc;
+        let hits = Arc::new(AtomicUsize::new(0));
+        let counter = hits.clone();
+        let target = Router::new().fallback(move || {
+            counter.fetch_add(1, Ordering::SeqCst);
+            async { "private" }
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let target_port = listener.local_addr().unwrap().port();
+        let private_server =
+            tokio::spawn(async move { axum::serve(listener, target).await.unwrap() });
+        let app = Router::new()
+            .route(
+                "/literal",
+                get(move || async move {
+                    axum::response::Redirect::temporary(&format!("http://127.0.0.1:{target_port}/"))
+                }),
+            )
+            .route(
+                "/name",
+                get(move || async move {
+                    axum::response::Redirect::temporary(&format!("http://localhost:{target_port}/"))
+                }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let mut network = Network::from_settings(&Settings::defaults()).unwrap();
+        network.media_client = crate::media_fetch::public_media_client(
+            &crate::settings::Outgoing::default(),
+            &[("example.com".into(), address)],
+        )
+        .unwrap()
+        .0;
+        network.retries = 0;
+        for path in ["literal", "name"] {
+            let url = format!("http://example.com:{}/{path}", address.port());
+            assert!(
+                network
+                    .fetch_image(EngineRequest::get(url), Duration::from_secs(2), 32)
+                    .await
+                    .is_err()
+            );
+        }
+        assert_eq!(hits.load(Ordering::SeqCst), 0);
+        server.abort();
+        private_server.abort();
+    }
+
+    #[tokio::test]
+    async fn media_size_limit_stops_before_end_of_stream() {
+        use axum::{Router, body::Body, routing::get};
+        use futures::StreamExt;
+        let app = Router::new().route(
+            "/",
+            get(|| async {
+                (
+                    [(reqwest::header::CONTENT_TYPE, "image/png")],
+                    Body::from_stream(
+                        futures::stream::once(async {
+                            Ok::<_, std::convert::Infallible>(vec![b'x'; 33])
+                        })
+                        .chain(futures::stream::pending()),
+                    ),
+                )
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let mut network = Network::from_settings(&Settings::defaults()).unwrap();
+        network.media_client = crate::media_fetch::public_media_client(
+            &crate::settings::Outgoing::default(),
+            &[("example.com".into(), address)],
+        )
+        .unwrap()
+        .0;
+        let result = tokio::time::timeout(
+            Duration::from_secs(2),
+            network.fetch_image(
+                EngineRequest::get(format!("http://example.com:{}/", address.port())),
+                Duration::from_secs(8),
+                32,
+            ),
+        )
+        .await
+        .expect("must reject without waiting for EOF");
+        assert!(matches!(result, Err(NetworkError::TooLarge(32))));
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn image_limits_apply_to_decoded_bytes_and_accept_the_exact_limit() {
+        use axum::{Router, routing::get};
+        use std::sync::Arc;
+
+        let requests = Arc::new(AtomicUsize::new(0));
+        let counter = requests.clone();
+        let app = Router::new()
+            .route(
+                "/exact",
+                get(|| async {
+                    (
+                        [(reqwest::header::CONTENT_TYPE, "image/png")],
+                        vec![b'x'; 32],
+                    )
+                }),
+            )
+            .route(
+                "/compressed",
+                get(move || {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    async {
+                        // Compressed 33 bytes; decoded limit is 32.
+                        (
+                            [
+                                (reqwest::header::CONTENT_TYPE, "image/png"),
+                                (reqwest::header::CONTENT_ENCODING, "gzip"),
+                            ],
+                            vec![
+                                31, 139, 8, 0, 0, 0, 0, 0, 2, 3, 171, 168, 32, 0, 0, 172, 211, 191,
+                                111, 33, 0, 0, 0,
+                            ],
+                        )
+                    }
+                }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let mut network = Network::from_settings(&Settings::defaults()).unwrap();
+        network.media_client = crate::media_fetch::public_media_client(
+            &crate::settings::Outgoing::default(),
+            &[("example.com".into(), address)],
+        )
+        .unwrap()
+        .0;
+        network.retries = 2;
+        let response = network
+            .fetch_image(
+                EngineRequest::get(format!("http://example.com:{}/exact", address.port())),
+                Duration::from_secs(2),
+                32,
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status, 200);
+        assert_eq!(response.header("content-type"), Some("image/png"));
+        assert_eq!(response.body, [b'x'; 32]);
+        let error = network
+            .fetch_image(
+                EngineRequest::get(format!("http://example.com:{}/compressed", address.port())),
+                Duration::from_secs(2),
+                32,
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(error, NetworkError::TooLarge(32)), "{error}");
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
+        server.abort();
     }
 
     #[test]

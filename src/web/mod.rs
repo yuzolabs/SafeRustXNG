@@ -9,7 +9,11 @@ pub mod feeds;
 pub mod handlers;
 pub mod image_proxy;
 pub mod limiter;
+#[cfg(test)]
+mod media_tests;
 pub mod preferences;
+#[cfg(test)]
+mod ssrf_tests;
 
 use std::sync::Arc;
 

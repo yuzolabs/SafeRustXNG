@@ -258,9 +258,23 @@ async fn redirects_cannot_bypass_html_rejection() {
 async fn cached_html_is_not_returned_to_engines() {
     let cache = Cache::memory(Duration::from_secs(60), 4096);
     let url = "http://127.0.0.1:1/never-requested";
+    use sha2::{Digest, Sha256};
+
+    let request = EngineRequest::get(url);
+    let identity = serde_json::to_vec(&(
+        request.method,
+        &request.url,
+        Vec::<(&str, &[u8])>::new(),
+        &request.cookies,
+        &request.form,
+        &request.json,
+        None::<&str>,
+    ))
+    .unwrap();
+    let cache_key = format!("{:x}", Sha256::digest(identity));
     cache
         .set(
-            &Cache::key("GET", url, ""),
+            &cache_key,
             CachedResponse {
                 status: 200,
                 final_url: url.into(),

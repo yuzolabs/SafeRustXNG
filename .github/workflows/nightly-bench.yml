@@ -1,58 +1,28 @@
-name: nightly-bench
+name: nightly-offline
 
 on:
   schedule:
-    # 03:00 JST every day
-    - cron: "0 18 * * *"
+    - cron: '0 18 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  accuracy:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 60
+  retrieval-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
       - uses: Swatinem/rust-cache@v2.9.3
-      - name: Build the release binary
-        run: cargo build --release --locked
-      - name: Start the server
-        run: |
-          set -euo pipefail
-          nohup ./target/release/saferustxng --port 29483 > /tmp/saferustxng.log 2>&1 &
-          for _ in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:29483/healthz > /dev/null; then exit 0; fi
-            sleep 2
-          done
-          echo 'server did not become ready' >&2
-          cat /tmp/saferustxng.log >&2
-          exit 1
-      - name: Run the 100 question benchmark
-        run: |
-          set -euo pipefail
-          python3 tools/eval_quality.py --base http://127.0.0.1:29483 \
-            --delay 1.0 --json bench/nightly.json | tee /tmp/bench.txt
-      - name: Check the result against the floor
-        run: python3 tools/check_bench.py bench/nightly.json --floor-hit1 50
-      - name: Publish the summary
-        if: always()
-        run: |
-          {
-            echo '## 100 問ベンチマーク'
-            echo ''
-            echo '```'
-            cat /tmp/bench.txt 2>/dev/null || echo 'no output'
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v7.0.2
-        if: always()
-        with:
-          name: bench-result
-          path: bench/nightly.json
-          retention-days: 30
-          if-no-files-found: warn
+      - name: Offline retrieval and removed-source regressions
+        run: cargo test --locked --test integration --test non_html_network --test tos_prohibited_sources
+      - name: Offline evaluation, release and audit policy tests
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
+      - name: Publish result
+        run: echo 'Local fixtures passed. No external search providers or LLMs were queried.' >> "$GITHUB_STEP_SUMMARY"
