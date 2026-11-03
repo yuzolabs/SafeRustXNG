@@ -34,6 +34,7 @@ pub mod external_bangs;
 pub mod i18n;
 pub mod locales;
 pub mod localindex;
+mod media_fetch;
 pub mod metrics;
 pub mod network;
 pub mod plugins;

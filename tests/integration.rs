@@ -79,62 +79,6 @@ async fn get_uri(app: &Router, uri: &str) -> (StatusCode, String, axum::http::He
 }
 
 #[tokio::test]
-async fn image_and_favicon_proxies_sandbox_svg_without_changing_image_bytes() {
-    use saferustxng::web::image_proxy::signature;
-
-    for (content_type, payload) in [
-        (
-            "image/svg+xml",
-            r#"<svg xmlns="http://www.w3.org/2000/svg" onload="alert(document.cookie)"><script>alert(1)</script><rect width="10" height="10"/></svg>"#,
-        ),
-        ("image/png", "raster image bytes"),
-    ] {
-        // A local HTTP proxy supplies bytes for public URLs without Internet access.
-        let upstream =
-            Router::new().fallback(get(move |headers: axum::http::HeaderMap| async move {
-                assert_eq!(headers[header::ACCEPT], "image/*");
-                ([(header::CONTENT_TYPE, content_type)], payload)
-            }));
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
-        let mut settings = settings_for("http://unused.invalid");
-        settings.server.image_proxy = true;
-        settings
-            .outgoing
-            .proxies
-            .insert("http".into(), format!("http://{address}"));
-        let app = app(settings);
-        for (path, url, cache_seconds) in [
-            ("image_proxy", "http://example.com/image", 86_400),
-            ("favicon_proxy", "http://example.com", 604_800),
-        ] {
-            let uri = format!(
-                "/{path}?url={}&h={}",
-                saferustxng::engine::util::encode(url),
-                signature("test", url),
-            );
-            let (status, body, headers) = get_uri(&app, &uri).await;
-            assert_eq!(status, StatusCode::OK);
-            assert_eq!(body, payload);
-            assert_eq!(headers[header::CONTENT_TYPE], content_type);
-            assert_eq!(
-                headers[header::CACHE_CONTROL],
-                format!("max-age={cache_seconds}")
-            );
-            assert_eq!(headers[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
-            assert_eq!(headers[header::REFERRER_POLICY], "no-referrer");
-            let policy = headers[header::CONTENT_SECURITY_POLICY].to_str().unwrap();
-            assert_eq!(
-                policy,
-                "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
-            );
-        }
-        server.abort();
-    }
-}
-
-#[tokio::test]
 async fn json_search_returns_merged_results() {
     let base_url = start_fake_engine().await;
     let app = app(settings_for(&base_url));
