@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use reqwest::header::{HeaderMap, HeaderValue};
+use sha2::{Digest, Sha256};
 use tracing::debug;
 
 use crate::cache::{Cache, CachedResponse};
@@ -156,31 +157,7 @@ fn build_client(
 impl Network {
     pub fn from_settings(settings: &Settings) -> Result<Self, NetworkError> {
         let outgoing = &settings.outgoing;
-        let mut builder = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::limited(outgoing.max_redirects))
-            .timeout(Duration::from_secs_f64(
-                outgoing.max_request_timeout.max(1.0),
-            ))
-            .connect_timeout(Duration::from_secs_f64(
-                (outgoing.request_timeout / 2.0).clamp(1.0, 5.0),
-            ))
-            .pool_max_idle_per_host(outgoing.pool_maxsize)
-            .danger_accept_invalid_certs(!outgoing.verify)
-            .user_agent(default_user_agent());
-        if !outgoing.enable_http2 {
-            builder = builder.http1_only();
-        }
-        for (scheme, proxy) in &outgoing.proxies {
-            // One proxy per scheme (upstream's \`outgoing.proxies\`); the scheme key
-            // selects which requests it applies to in SearXNG, reqwest proxies all.
-            let proxy = reqwest::Proxy::all(proxy)
-                .map_err(|error| NetworkError::Build(error.to_string()))?;
-            tracing::debug!(scheme, "configured proxy");
-            builder = builder.proxy(proxy);
-        }
-        let client = builder
-            .build()
-            .map_err(|error| NetworkError::Build(error.to_string()))?;
+        let client = build_client(outgoing, None)?;
         Ok(Self {
             client,
             proxied: std::sync::Mutex::new(std::collections::HashMap::new()),
@@ -259,24 +236,30 @@ impl Network {
         cache: Option<&Cache>,
         proxy: Option<&str>,
     ) -> Result<EngineResponse, NetworkError> {
+        let deadline = tokio::time::Instant::now() + timeout;
         let client = self.client_for(proxy);
-        let body_repr = if let Some(json) = &request.json {
-            json.to_string()
-        } else {
-            request
-                .form
-                .iter()
-                .map(|(key, value)| format!("{key}={value}"))
-                .collect::<Vec<_>>()
-                .join("&")
-        };
-        let method = match request.method {
-            Method::Get => "GET",
-            Method::Post => "POST",
-        };
-        let cache_key = Cache::key(method, &request.url, &body_repr);
+        let mut headers: Vec<_> = request
+            .headers
+            .iter()
+            .map(|(name, value)| (name.as_str(), value.as_bytes()))
+            .collect();
+        headers.sort_by_key(|(name, _)| *name);
+        let identity = serde_json::to_vec(&(
+            request.method,
+            &request.url,
+            headers,
+            &request.cookies,
+            &request.form,
+            &request.json,
+            proxy.map(str::trim),
+        ))
+        .map_err(|error| NetworkError::Build(error.to_string()))?;
+        let cache_key = format!("{:x}", Sha256::digest(identity));
         if let Some(cache) = cache {
-            if let Some(cached) = cache.get(&cache_key).await {
+            if let Some(cached) = tokio::time::timeout_at(deadline, cache.get(&cache_key))
+                .await
+                .map_err(|_| NetworkError::Timeout)?
+            {
                 validate_machine_content_type(
                     cached.headers.get("content-type").map(String::as_str),
                 )?;
@@ -290,7 +273,6 @@ impl Network {
             }
         }
 
-        let deadline = tokio::time::Instant::now() + timeout;
         let mut attempt = 0;
         loop {
             attempt += 1;
@@ -318,9 +300,11 @@ impl Network {
             match outcome {
                 Ok(response) => {
                     if let Some(cache) = cache {
-                        if response.status == 200 && !response.body.is_empty() {
-                            cache
-                                .set(
+                        if response.status == 200
+                            && !response.body.is_empty()
+                            && tokio::time::timeout_at(
+                                deadline,
+                                cache.set(
                                     &cache_key,
                                     CachedResponse {
                                         status: response.status,
@@ -328,8 +312,12 @@ impl Network {
                                         headers: response.headers.clone(),
                                         body: std::sync::Arc::new(response.body.clone()),
                                     },
-                                )
-                                .await;
+                                ),
+                            )
+                            .await
+                            .is_err()
+                        {
+                            debug!(url = %request.url, "cache write timed out");
                         }
                     }
                     return Ok(response);
@@ -503,6 +491,78 @@ fn build_user_agents() -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn cached_responses_respect_request_cookies_headers_and_forms() {
+        use axum::{Router, routing::post};
+        use std::sync::Arc;
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let requests = Arc::clone(&calls);
+        let app = Router::new().route(
+            "/",
+            post(move |headers: HeaderMap, body: String| {
+                requests.fetch_add(1, Ordering::Relaxed);
+                async move {
+                    format!(
+                        "{}|{}|{}",
+                        headers[reqwest::header::COOKIE].to_str().unwrap(),
+                        headers[reqwest::header::ACCEPT_LANGUAGE].to_str().unwrap(),
+                        body
+                    )
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let network = Network::from_settings(&Settings::defaults()).unwrap();
+        let cache = Cache::default();
+
+        for (safe, language, form, expected) in [
+            ("off", "ja", vec![], "safesearch=off|ja|"),
+            ("strict", "ja", vec![], "safesearch=strict|ja|"),
+            ("strict", "en", vec![], "safesearch=strict|en|"),
+            (
+                "strict",
+                "en",
+                vec![("q", "cats&safe=0"), ("safe", "2")],
+                "safesearch=strict|en|q=cats%26safe%3D0&safe=2",
+            ),
+            (
+                "strict",
+                "en",
+                vec![("q", "cats"), ("safe", "0&safe=2")],
+                "safesearch=strict|en|q=cats&safe=0%26safe%3D2",
+            ),
+        ] {
+            let request = EngineRequest::post(&url)
+                .cookie("safesearch", safe)
+                .header("Accept-Language", language)
+                .header("Accept", "text/plain")
+                .form(
+                    form.into_iter()
+                        .map(|(key, value)| (key.into(), value.into()))
+                        .collect(),
+                );
+            let response = network
+                .fetch(request, Duration::from_secs(2), Some(&cache), None)
+                .await
+                .unwrap();
+            assert_eq!(response.text(), expected);
+        }
+        let repeated = EngineRequest::post(&url)
+            .header("Accept", "text/plain")
+            .header("Accept-Language", "en")
+            .cookie("safesearch", "strict");
+        let response = network
+            .fetch(repeated, Duration::from_secs(2), Some(&cache), None)
+            .await
+            .unwrap();
+        assert_eq!(response.text(), "safesearch=strict|en|");
+        assert_eq!(calls.load(Ordering::Relaxed), 5);
+        server.abort();
+    }
 
     #[test]
     fn user_agents_are_diverse_and_plausible() {
