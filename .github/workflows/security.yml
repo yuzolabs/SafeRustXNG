@@ -1,0 +1,42 @@
+name: security-audit
+
+on:
+  workflow_call:
+  schedule:
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: '1'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4.4.0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4.3.0
+        id: cache
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-0.22.2-${{ runner.os }}
+      - name: Install pinned audit tool
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-audit --locked --version 0.22.2
+      - name: Fetch current advisories and record all findings
+        run: cargo audit --json > audit.json 2> audit.log || true
+      - name: Reject vulnerabilities, new findings or expired baseline
+        run: python3 tools/check_audit.py audit.json
+      - uses: actions/upload-artifact@v4.6.2
+        if: always()
+        with:
+          name: dependency-audit
+          path: |
+            audit.json
+            audit.log
+          retention-days: 30
+          if-no-files-found: error

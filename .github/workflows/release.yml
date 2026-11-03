@@ -1,24 +1,16 @@
 name: release
 
-# Publish the platform binaries on an annotated version tag.
-#
-# SafeRustXNG assets use `saferustxng-<tag>-<rustc triple>` (plus `.exe`
-# on Windows). The tag is part of the file name on every platform.
-
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
-    # Re-run the release for an existing tag. The workflow file is taken from
-    # the dispatched ref, so a broken step can be fixed without moving the tag.
     inputs:
       tag:
-        description: 'Existing tag to publish, e.g. v0.4.0'
+        description: 'Existing stable tag to publish, e.g. v0.26.0'
         required: true
         type: string
       dry_run:
         description: 'Build and verify everything, upload nothing'
-        required: false
         type: boolean
         default: false
 
@@ -27,44 +19,62 @@ permissions:
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  PYTHONUTF8: '1'
 
 concurrency:
   group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      matrix: ${{ steps.source.outputs.matrix }}
+      targets: ${{ steps.source.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate tag, main ancestry and exact successful CI
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 tools/release_tools.py validate --tag "$RELEASE_TAG"
+          sha=$(git rev-parse HEAD)
+          git merge-base --is-ancestor "$sha" origin/main
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&event=push&per_page=100" > "$RUNNER_TEMP/runs.json"
+          python3 tools/release_tools.py ci-gate --tag "$RELEASE_TAG" --sha "$sha" --repository "$GITHUB_REPOSITORY" --runs "$RUNNER_TEMP/runs.json"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          targets = json.loads(Path('.github/release-targets.json').read_text())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              print('matrix=' + json.dumps({'include': targets}), file=output)
+              print('targets=' + ' '.join(item['target'] for item in targets), file=output)
+          PY
+
   build:
+    needs: prepare
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # glibc 2.35 floor: build on 22.04 so 24.04 and 25.x still run it.
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            artifact: saferustxng
-          # Static: runs on any Linux, including Alpine.
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-musl
-            artifact: saferustxng
-            musl: true
-          # Both macOS targets build on the arm64 runner: the Apple toolchain
-          # cross-compiles to x86_64, and the Intel runner labels are retired
-          # or queue for hours.
-          - os: macos-15
-            target: aarch64-apple-darwin
-            artifact: saferustxng
-          - os: macos-15
-            target: x86_64-apple-darwin
-            artifact: saferustxng
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact: saferustxng.exe
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
@@ -72,6 +82,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2.9.3
         with:
           key: ${{ matrix.target }}
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.12'
       - name: Install the musl toolchain
         if: matrix.musl
         run: |
@@ -80,35 +93,33 @@ jobs:
       - name: Build
         shell: bash
         run: cargo build --release --locked --target "${{ matrix.target }}"
-      - name: Check the binary answers
+      - name: Check architecture, native version and startup
         shell: bash
+        env:
+          NATIVE: ${{ matrix.native }}
         run: |
           set -euo pipefail
           binary="target/${{ matrix.target }}/release/${{ matrix.artifact }}"
-          test -f "$binary"
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            "$binary" --version
-          fi
-      - name: Name the asset after the tag and the target
+          native=()
+          if [ "$NATIVE" = true ]; then native+=(--native); fi
+          python3 tools/release_tools.py binary --tag "$RELEASE_TAG" --binary "$binary" --target "${{ matrix.target }}" "${native[@]}"
+          if [ "$NATIVE" = true ]; then python3 tools/smoke_agent_setup.py --binary "$binary"; fi
+      - name: Stage the binary and its checksum
         shell: bash
         run: |
           set -euo pipefail
-          source="target/${{ matrix.target }}/release/${{ matrix.artifact }}"
           name="saferustxng-${RELEASE_TAG}-${{ matrix.target }}"
-          case "${{ matrix.artifact }}" in
-            *.exe) name="$name.exe" ;;
-          esac
+          case "${{ matrix.artifact }}" in *.exe) name="$name.exe" ;; esac
           mkdir -p dist
-          cp "$source" "dist/$name"
-          # macOS ships shasum, not sha256sum. Record the bare file name so
-          # `sha256sum --check` works from the download directory.
-          if command -v sha256sum >/dev/null 2>&1; then
-            ( cd dist && sha256sum "$name" > "$name.sha256" )
-          else
-            ( cd dist && shasum -a 256 "$name" > "$name.sha256" )
-          fi
-          cat "dist/$name.sha256"
-          ls -l dist
+          cp "target/${{ matrix.target }}/release/${{ matrix.artifact }}" "dist/$name"
+          python3 - "$name" <<'PY'
+          import hashlib, sys
+          from pathlib import Path
+          binary = Path('dist') / sys.argv[1]
+          with binary.open('rb') as stream:
+              digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+          binary.with_name(binary.name + '.sha256').write_text(digest + '  ' + binary.name + '\n', encoding='utf-8', newline='\n')
+          PY
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: saferustxng-${{ matrix.target }}
@@ -117,148 +128,55 @@ jobs:
           retention-days: 7
 
   publish:
-    needs: build
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
+    env:
+      SOURCE_SHA: ${{ needs.prepare.outputs.sha }}
+      TARGETS: ${{ needs.prepare.outputs.targets }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
       - uses: actions/download-artifact@v8.0.2
         with:
           pattern: saferustxng-*
           merge-multiple: true
           path: dist
-      - name: Require the complete, expected asset set
-        shell: bash
+      - name: Verify complete assets and generate source manifest and notes
         run: |
           set -euo pipefail
-          expected="x86_64-unknown-linux-gnu x86_64-unknown-linux-musl aarch64-apple-darwin x86_64-apple-darwin x86_64-pc-windows-msvc"
-          for target in $expected; do
-            case "$target" in
-              *windows*) name="saferustxng-${RELEASE_TAG}-$target.exe" ;;
-              *) name="saferustxng-${RELEASE_TAG}-$target" ;;
-            esac
-            test -s "dist/$name" || { echo "missing asset: $name" >&2; exit 1; }
-            test -s "dist/$name.sha256" || { echo "missing sidecar: $name.sha256" >&2; exit 1; }
-          done
-          ls -l dist
-      - name: Compose the release notes from the changelog
-        shell: bash
+          cp LICENSE NOTICE dist/
+          read -r -a targets <<< "$TARGETS"
+          python3 tools/release_tools.py manifest --tag "$RELEASE_TAG" --sha "$SOURCE_SHA" --targets "${targets[@]}"
+          python3 tools/release_tools.py notes --tag "$RELEASE_TAG" > "$RUNNER_TEMP/notes.md"
+      - name: Upload a draft, verify downloaded bytes, then publish
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version="${RELEASE_TAG#v}"
-          # Keep the section for this version; fall back to the tag when the
-          # changelog has no entry yet.
-          awk -v want="## [$version]" '
-            $0 ~ "^" want { inside = 1; next }
-            inside && /^## / { exit }
-            inside { print }
-          ' CHANGELOG.md > "$RUNNER_TEMP/section.md"
-          if [ -s "$RUNNER_TEMP/section.md" ]; then
-            { echo "# SafeRustXNG $RELEASE_TAG"; echo; cat "$RUNNER_TEMP/section.md"; } > "$RUNNER_TEMP/notes.md"
+          if gh release view "$RELEASE_TAG" --json isDraft > "$RUNNER_TEMP/release.json"; then
+            test "$(jq -r .isDraft "$RUNNER_TEMP/release.json")" = true || { echo 'published releases are immutable' >&2; exit 1; }
           else
-            { echo "# SafeRustXNG $RELEASE_TAG"; echo; echo "チェックサムは各アセットの .sha256 を参照してください。"; } > "$RUNNER_TEMP/notes.md"
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "SafeRustXNG $RELEASE_TAG" --notes-file "$RUNNER_TEMP/notes.md"
           fi
-          echo "--- notes ---"
-          head -20 "$RUNNER_TEMP/notes.md"
-      - name: Create the release when it does not exist
-        if: ${{ !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "release $RELEASE_TAG already exists; adding missing assets"
-            exit 0
+          # Only a private draft may be repaired; published assets are never replaced.
+          gh release upload "$RELEASE_TAG" dist/* --clobber
+          mkdir -p "$RUNNER_TEMP/verify"
+          gh release download "$RELEASE_TAG" --dir "$RUNNER_TEMP/verify"
+          read -r -a targets <<< "$TARGETS"
+          test -s "$RUNNER_TEMP/verify/release-manifest.json"
+          python3 tools/release_tools.py verify --tag "$RELEASE_TAG" --sha "$SOURCE_SHA" --dist "$RUNNER_TEMP/verify" --targets "${targets[@]}"
+          promote=true
+          if gh api "repos/$GITHUB_REPOSITORY/releases/latest" > "$RUNNER_TEMP/latest.json" 2> "$RUNNER_TEMP/latest-error"; then
+            current=$(jq -r .tag_name "$RUNNER_TEMP/latest.json")
+            promote=$(python3 tools/release_tools.py promote --tag "$RELEASE_TAG" --current-tag "$current")
+          elif ! grep -q 'HTTP 404' "$RUNNER_TEMP/latest-error"; then
+            cat "$RUNNER_TEMP/latest-error" >&2
+            exit 1
           fi
-          gh release create "$RELEASE_TAG" --verify-tag --title "SafeRustXNG $RELEASE_TAG" \
-            --notes-file "$RUNNER_TEMP/notes.md"
-      - name: Upload only the assets the release does not have
-        if: ${{ !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Never overwrite a published asset: a rebuild differs byte for byte,
-          # and replacing it would invalidate every checksum already handed out.
-          # An asset that is already published keeps its bytes; its sidecar is
-          # regenerated from those bytes so the pair still agrees.
-          existing="$RUNNER_TEMP/existing"
-          mkdir -p "$existing"
-          if gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' > "$RUNNER_TEMP/have.txt" 2>/dev/null; then
-            # An existing release may still have no assets (a previous publish
-            # run created it and stopped): gh refuses to download nothing.
-            if [ -s "$RUNNER_TEMP/have.txt" ]; then
-              gh release download "$RELEASE_TAG" --dir "$existing" >/dev/null
-            fi
-          else
-            : > "$RUNNER_TEMP/have.txt"
-          fi
-          for file in dist/*; do
-            name="$(basename "$file")"
-            case "$name" in *.sha256) continue ;; esac
-            if grep -qxF "$name" "$RUNNER_TEMP/have.txt"; then
-              echo "keep published bytes: $name"
-              cp "$existing/$name" "dist/$name"
-              ( cd dist && sha256sum "$name" > "$name.sha256" )
-            fi
-          done
-          pending=()
-          for file in dist/*; do
-            name="$(basename "$file")"
-            if grep -qxF "$name" "$RUNNER_TEMP/have.txt"; then
-              echo "keep: $name"
-            else
-              pending+=("$file")
-            fi
-          done
-          if [ ${#pending[@]} -eq 0 ]; then
-            echo "nothing to upload"
-          else
-            gh release upload "$RELEASE_TAG" "${pending[@]}"
-          fi
-      - name: Attach the licence files
-        if: ${{ !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          # AGPL-3.0 requires the licence text to travel with the binaries.
-          # These are static, so a published copy is never replaced.
-          for file in LICENSE NOTICE; do
-            if gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -qxF "$file"; then
-              echo "$file already attached"
-            else
-              gh release upload "$RELEASE_TAG" "$file"
-            fi
-          done
-      - name: Verify the published asset set
-        if: ${{ !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | sort > "$RUNNER_TEMP/published.txt"
-          missing=0
-          for file in dist/*; do
-            name="$(basename "$file")"
-            if ! grep -qxF "$name" "$RUNNER_TEMP/published.txt"; then
-              echo "not published: $name" >&2
-              missing=1
-            fi
-          done
-          cat "$RUNNER_TEMP/published.txt"
-          # Prove the published bytes match the published checksums, including
-          # the assets this run did not build (an earlier upload).
-          verify="$RUNNER_TEMP/verify"
-          mkdir -p "$verify"
-          gh release download "$RELEASE_TAG" --dir "$verify" --clobber
-          ( cd "$verify" && sha256sum --check ./*.sha256 )
-          exit "$missing"
+          gh release edit "$RELEASE_TAG" --draft=false --latest="$promote"

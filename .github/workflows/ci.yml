@@ -13,6 +13,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/security.yml
+
+  workflow-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned workflow validator
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - name: Validate workflow syntax, expressions and shell
+        run: '"$(go env GOPATH)/bin/actionlint" -color'
+
   verify-actions-lock:
     runs-on: ubuntu-latest
     timeout-minutes: 5
