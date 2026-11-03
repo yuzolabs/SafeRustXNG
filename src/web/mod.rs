@@ -12,6 +12,8 @@ pub mod limiter;
 #[cfg(test)]
 mod media_tests;
 pub mod preferences;
+#[cfg(test)]
+mod ssrf_tests;
 
 use std::sync::Arc;
 

@@ -12,7 +12,23 @@ The owner coordinates investigation and disclosure; no response-time guarantee i
 SafeRustXNG retrieves untrusted upstream information. Local hosting and a successful health check do not establish safety.
 The [2026-11-02 audit](docs/AUDIT-2026-11-02.md) records findings against commit fef998b, including DNS/IPv6/redirect
 SSRF gaps, unsafe result URL schemes, response-size limits, cache identity and research API resource limits.
-Read that report and the current fixes before exposing the service or enabling untrusted page fetching.
+This is a historical snapshot, not a list of wholly unresolved or wholly closed findings. Review it alongside the
+scoped fixes below before exposing the service; these changes do not establish whole-application safety.
+
+Earlier backports addressed dangerous result URL schemes, proxy fallback, cache identity and deadlines,
+`/research` limits, calculator execution budgets, and raw partial-configuration merging. With
+`use_default_settings = false`, an empty or omitted engine list no longer restores default engines.
+
+The security backport of upstream `e62b48e` (#77) adds media-only global IPv4/IPv6 checks, including NAT64.
+Direct DNS resolution rejects the entire answer if it is empty or includes any non-public address, connects using
+the exact checked addresses, and checks redirect destinations. Configured or environment proxies make media reads
+fail closed; `image_proxy = false` also disables favicon fetching. These restrictions do not apply to ordinary
+configured search backends: private search backends remain supported.
+
+`Searcher::new` replaces a blank key or the historical `ultrasecretkey` with a `getrandom`-generated per-instance
+signing key; an explicit operator key is retained. The shipped `settings.toml` leaves `server.secret_key` blank.
+Generated keys change after restart. Multi-worker deployments and signatures that must survive restarts require
+a shared operator-provided secret via `server.secret_key` or `SEARXNG_SECRET`.
 
 Bind local-agent services to loopback; publish container ports with an explicit host IP.
 The engine timeout and suspension mechanisms are availability controls, not complete SSRF or memory-exhaustion defenses.
@@ -30,14 +46,16 @@ plus maintenance warnings. The default `db-engines` feature enables the PostgreS
 it is incorrect to claim these dependencies are absent from the default build.
 See the [recorded advisory output](docs/audit/2026-11-02/dependencies.json).
 This is a dated snapshot, not a claim about the latest advisory database or exploitability of every dependency path.
-`ctutils` has since been updated to `0.4.4`.
+`ctutils` was updated to `0.4.4` in an earlier backport. The #77 backport updates `mysql` to `28.0.4`, removing
+`lru 0.12.5`, and `serde_with` to `3.21.0`, patching GHSA-7gcf-g7xr-8hxj. The advisory alone does not establish
+that the vulnerable serializer was invoked by this application.
 
 The [security workflow](.github/workflows/security.yml) defines a pinned `cargo-audit 0.22.2` check called by CI,
 with daily and manual triggers, retaining the full JSON report and log.
 [Audit policy](tools/check_audit.py) rejects vulnerabilities, new warnings, incomplete reports and an expired baseline.
 The [temporary baseline](.github/security-baseline.json) expires on **2026-12-03** and permits these findings:
-maintenance warnings for `basic-toml 0.1.10`, `fxhash 0.2.1` and `unsafe-libyaml 0.2.11`,
-and two unsoundness findings for `lru 0.12.5`.
+maintenance warnings for `basic-toml 0.1.10`, `fxhash 0.2.1` and `unsafe-libyaml 0.2.11`.
+No vulnerability or unsoundness findings are permitted.
 
 Updates require review of actual usage, a locked dependency check, tests and platform/MSRV verification.
 Do not silently suppress a security advisory or present a clean normal CI run as a security audit.

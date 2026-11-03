@@ -63,9 +63,9 @@ jobs:
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
       - name: Build and test
-        run: cargo test --all-targets
+        run: cargo test --locked --all-targets
       - name: Build the server binary
         run: cargo build --locked --bin saferustxng
       - uses: actions/setup-python@v7.1.0
@@ -80,7 +80,37 @@ jobs:
         run: cargo build --release --example benchmark
       - name: Lint the Japanese docs
         if: runner.os == 'Linux'
-        run: npx --yes markdownlint-cli2 "*.md" "docs/*.md" 
+        run: npx --yes markdownlint-cli2@0.24.0 "*.md" "docs/*.md"
+
+  mysql-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mariadb:
+        image: mariadb:11.8@sha256:c4124d1afa875e47f2892edf26b482fa54f796e2f342d3717a04ca091a22a9bd
+        env:
+          MARIADB_RANDOM_ROOT_PASSWORD: "yes"
+          MARIADB_DATABASE: saferustxng_test
+          MARIADB_USER: saferustxng
+          MARIADB_PASSWORD: fixture-password
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2.9.3
+        with:
+          key: mysql-integration
+      - run: cargo test --locked --test mysql -- --ignored
+        env:
+          MYSQL_TEST_PORT: ${{ job.services.mariadb.ports['3306'] }}
 
   no-default-features:
     # The documented slim build (no database engines) must keep compiling.
