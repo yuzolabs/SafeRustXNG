@@ -41,16 +41,16 @@ python3 tools/coverage.py /path/to/searxng settings.toml
 | DB ドライバ直結 | 8 | `postgresql` / `mysql_server` / `mariadb_server` / `mongodb` / `sqlite` / `valkey_server` / `recoll` / `opensemantic` — 設定を読んで説明用のエラーを返すスタブ |
 | MediaWiki / 宣言型 | 40 以上 | `tools/import_engines.py` で上流定義から生成 |
 
-### DB ドライバ直結エンジンについて
+### DB・ローカル検索バックエンドについて
 
-`postgresql` / `mysql_server` / `mariadb_server` / `mongodb` / `sqlite` / `valkey_server` / `recoll` / `opensemantic` は、SearXNG が DB ドライバを直接使ってインデックスを検索するエンジンです。Rust 版では DB クライアントの依存を増やさない方針のため、設定（接続先・認証情報）を読み取り、実際の検索時には理由付きのエラーを返すスタブとして実装しています。HTTP 経由で検索できる `elasticsearch` / `sorl` / `meilisearch` は完全実装です。
+`postgresql` / `mysql_server` / `mariadb_server` / `mongodb` / `sqlite` は `Cargo.toml` の `db-engines` feature（既定有効）で各 DB クライアントによる直接検索を実装しており、`valkey_server` は RESP 接続、`recoll` / `opensemantic` / `elasticsearch` / `solr` / `meilisearch` は HTTP エンドポイント経由で検索します（詳細は `src/engines/` の各モジュールを参照）。いずれも接続先の設定が必要なため、`settings.toml` では既定で `disabled = true` です。
 
 ### 実装済みでも既定で無効なもの
 
 上流と同じく、次は認証情報や自前インスタンスの設定が必要なため `disabled = true` にしています。
 
 - API キー: `braveapi`, `kagi`, `exaapi`, `wolframalpha_api`, `springer`, `flickr`, `youtube_api`, `giphy`, `marginalia`, `jina`, `spotify` など
-- 自前インスタンス: `lemmy`, `mastodon`, `peertube`, `sepiasearch`, `discourse`, `torznab`, `yacy`
+- 自前インスタンス: `discourse`, `torznab`, `yacy`
 - 翻訳系: `deepl`, `libretranslate`, `lingva`, `mozhi`, `translated`
 
 ## 移植時の意図的な差分
@@ -69,5 +69,5 @@ python3 tools/coverage.py /path/to/searxng settings.toml
 | favicons | 実装（`/favicon_proxy`、キャッシュ付き） |
 | i18n | 57 ロケール（`tools/import_translations.py` で生成） |
 | wikidata インフォボックス | `src/wikidata_infobox.rs` |
-| valkey / redis キャッシュ | 未移植（TTL + LRU のメモリ内キャッシュで代替） |
-| botdetection / limiter.toml | 部分（クライアント単位の簡易レート制限のみ） |
+| valkey / redis キャッシュ | 実装（TTL + LRU のメモリ内キャッシュと Valkey / Redis バックエンドに対応、`src/cache.rs`） |
+| botdetection / limiter.toml | 部分（信頼プロキシ配下の実 IP 解決、CIDR 許可/拒否リスト、スライディング窓 IP 制限、ステートレス HMAC link token 等、`src/web/limiter.rs`） |

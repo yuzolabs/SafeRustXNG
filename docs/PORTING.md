@@ -45,9 +45,9 @@
 | エンジンのサスペンドと統計 | 移植済み | `ban_time_on_fail`、`max_ban_time_on_fail`、`suspended_times` を反映 |
 | HTTP クライアント（UA ローテーション、プロキシ、リトライ、タイムアウト） | 移植済み | `outgoing` 設定に対応 |
 | 時間範囲フィルタ（`time_range`） | 移植済み | UI のセレクタと API の両方から指定可能。エンジン側はネイティブな日付フィルタへ変換（Crossref `from-pub-date`、GitHub `pushed:>`、arXiv の日付順ソート、Stack Exchange `fromdate`、Hacker News `numericFilters`、Dailymotion の期間指定） |
-| 応答キャッシュ | 部分 | メモリ内 TTL + LRU のみ。上流の valkey / redis / sqlite バックエンドは未移植 |
+| 応答キャッシュ | 部分 | プロセス内の TTL + LRU メモリキャッシュ（`backend = "memory"`）と Valkey / Redis バックエンド（`backend = "valkey"`、`src/cache.rs`）に対応。上流の SQLite キャッシュ等は未移植 |
 | メトリクス | 移植済み | メモリ内カウンタ、`/stats` と `/metrics`（OpenMetrics / Prometheus）。エンジン指標は上流と同じ `searxng_engines_*` 名 |
-| レート制限・bot 検出（`limiter.toml`、botdetection） | 部分 | `server.limiter = true` で動く簡易レート制限（クライアント単位の固定窓、`limiter_window` / `limiter_max`）。上流の botdetection（link token、Redis カウンタ、IP 範囲判定）は未移植 |
+| レート制限・bot 検出（`limiter.toml`、botdetection） | 部分 | 信頼プロキシ配下の実 IP 解決、許可/拒否 IP リスト（CIDR 対応）、バースト・長期・API のスライディング窓 IP 制限、ステートレス HMAC Cookie による link token チャレンジを実装（`src/web/limiter.rs`）。Valkey 共有カウンタや一部のヘッダプローブ等は未移植であり、上流との完全な同一性は保証しない |
 | 検索 API（html / json / csv / rss） | 移植済み | `format=` で切り替え |
 | `/autocompleter` | 移植済み | duckduckgo（既定） / wikipedia / mwmbl。google は削除済み。未知・削除済みのバックエンドは外部通信せず空の候補を返す |
 | `/config`、`/preferences`、`/stats`、`/healthz`、`/opensearch.xml` | 移植済み | 設定は Cookie 保存（上流と同じ発想） |
@@ -123,9 +123,8 @@
 
 ## 今後の課題
 
-1. botdetection 本体（link token、Redis カウンタ、IP 範囲判定）
+1. botdetection の未移植部分（Valkey 共有のレート制限カウンタ・トークン保存、追加の HTTP ヘッダプローブ）
 2. favicon 収集（画像プロキシは実装済み）
-3. valkey / redis バックエンドのキャッシュ（メモリ内キャッシュと Prometheus 出力は実装済み）
-4. アンサー（通貨・天気・単位変換）とインフォボックスの生成側
-5. UI の多言語化（上流の翻訳カタログの取り込み。現在は英語 UI のみ）
-6. 上流テストスイートの取り込み（過去の課題記録では独自テスト 120 件。現在の件数ではありません）
+3. アンサー（通貨・天気・単位変換）とインフォボックスの生成側
+4. UI の多言語化（上流の翻訳カタログの取り込み。現在は英語 UI のみ）
+5. 上流テストスイートの取り込み（過去の課題記録では独自テスト 120 件。現在の件数ではありません）

@@ -46,35 +46,25 @@ max_ban_time_on_fail = 120
 max_page = 0
 timeout_limit = 3.0
 formats = ["html", "csv", "json", "rss"]
-# --- 推奨設定（20 問ベンチで Tavily を上回ることを確認済み） ---
-# parallel: 全エンジンを同時に開始。hit@5 80% / MRR 0.80（Tavily 0.41）で最良。
-# timeout_limit=3.0: より短くすると品質が落ちる（1.5 秒で MRR 0.74）。3 秒が最良。
+# エンジンの実行戦略（"parallel" は対象エンジンを同時に開始、"staged" は段階的に実行）。
 strategy = "parallel"
 staged_tier = 8
 staged_min_results = 10
 # URL/タイトルにクエリ語が含まれる結果をどれだけ押し上げるか（0=上流の位置融合のみ）。
-# Exa のニューラル検索は「公式ドキュメントの意図」を掴むため、これを上げて対抗する。
-# 20 問ベンチで 4.0 が最良（MRR 0.838・hit@5 19/20 で Exa と同率）。
 relevance_weight = 4.0
 
-# クエリがサイト名を指すとき、そのサイト内検索（site: 付き）を二段目として
-# 実行し、公式リファレンスページを取りこぼさないようにする。
-# 100 問ベンチでは全体として逆効果（hit@1 68→62）だったため既定は false。
-# 特定サイトのリファレンスを狙う用途では true にすると見つかりやすい。
+# クエリがサイト名を指すとき、そのサイト内検索（site: 付き）を二段目として実行する。
 site_scoped_retry = false
 
-# 意味（埋め込み）リランキング — Exa のニューラル検索に完全対抗するため。
-# OpenAI 互換の embeddings エンドポイントを指す。tools/embed_server.py
-# （ローカル・高速・キー不要）か、クラウドの embeddings API を指定。
+# 意味（埋め込み）リランキング。
+# OpenAI 互換の embeddings エンドポイントを指す（tools/embed_server.py または外部の embeddings API）。
 # 空文字列で無効（位置融合 + 関連度のみ）。
 embedding_url = ""
 embedding_model = "BAAI/bge-small-en-v1.5"
 # コサイン類似度をスコアに足す強さ。高いほど意味検索の優先度が増す。
 embedding_weight = 2.5
 # クエリが指すサイト（arxiv / mdn / python / docker など）の正規ドメインを
-# 押し上げ、ミラー（docker-docs.uclv.cu 等）を下げる強さ。意味検索でも
-# 弁別できない「公式 vs コピー」を分ける。0 で無効。
-# 20 問ベンチで 8.0 が最良（MRR 0.870・hit@1 17/20 で Exa を上回る）。
+# 押し上げ、ミラー（docker-docs.uclv.cu 等）を下げる強さ。0 で無効。
 authority_weight = 8.0
 # 何件の上位結果を埋め込みで並べ替えるか
 embedding_topk = 25
@@ -101,9 +91,9 @@ max_redirects = 20
 keepalive_expiry = 5.0
 using_tor_proxy = false
 
-# 上流へ出るときのプロキシ。指定した scheme のリクエストがこのプロキシを通る。
+# 上流へ出るときの全体プロキシ（設定したプロキシ URL は reqwest::Proxy::all として全スキームの通信に適用される）。
 # 削除されたエンジンをプロキシ設定で有効化することはできない。
-# 注意: 現状は全エンジン共通で、エンジン個別の指定には未対応。
+# エンジン個別のプロキシは各 [[engines]] の proxy で指定できる。
 # [outgoing.proxies]
 # https = "socks5h://127.0.0.1:9050"
 # http = "socks5h://127.0.0.1:9050"
