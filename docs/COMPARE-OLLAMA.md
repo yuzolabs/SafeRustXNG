@@ -7,8 +7,9 @@ Ollama の Web Search API と RustXNG を、AI エージェントの検索ツー
 ## 結論
 
 - **手軽さ・トークン効率・ページ取得まで一括**なら Ollama Web Search
-- **無制限・自前データ・プライバシー・低レイテンシの大量検索**なら RustXNG
+- **自前データの統合・サイトや期間などの細かい絞り込み**なら RustXNG
 - 併用も現実的です。Ollama のエージェントに、Web 検索ツールとして RustXNG を差し込めます
+- RustXNG 自体はローカルで動作しますが、検索語は選択した上流の検索先へ送信されます。また、各提供元のレート制限・クォータ・料金（有料 API 利用時など）が適用される場合があります
 
 ## 仕様の比較
 
@@ -56,8 +57,6 @@ Ollama の Web Search API と RustXNG を、AI エージェントの検索ツー
 | すぐ試したい / 自前インフラを持ちたくない | Ollama |
 | トークン効率を最優先にしたい | Ollama |
 | 検索してからページ本文も読みたい | Ollama（`web_fetch` 込み） |
-| クエリを外部に出したくない | RustXNG |
-| 回数制限を気にせず大量に検索したい | RustXNG |
 | 社内 DB や独自ソースも同じ API で検索したい | RustXNG（PostgreSQL / MySQL / MongoDB / SQLite など） |
 | サイト指定・新着指定・カテゴリ指定を細かく使いたい | RustXNG |
 

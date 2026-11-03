@@ -2,18 +2,13 @@
 //!
 //! Human-facing HTML scrapers and the generic XPath engine are not registered.
 
-pub mod andisearch;
 pub mod apple_app_store;
 pub mod apple_maps;
 pub mod artic;
-pub mod artstation;
 pub mod arxiv;
 pub mod astrophysics_data_system;
 pub mod azure;
 pub mod baidu;
-pub mod bilibili;
-pub mod bing_news;
-pub mod bitchute;
 pub mod boardreader;
 pub mod bpb;
 pub mod braveapi;
@@ -21,7 +16,6 @@ pub mod bt4g;
 pub mod cachy_os;
 pub mod ccc_media;
 pub mod chatnoir;
-pub mod chefkoch;
 pub mod chinaso;
 pub mod cloudflareai;
 pub mod core;
@@ -34,7 +28,6 @@ pub mod deezer;
 pub mod devicons;
 pub mod discourse;
 pub mod docker_hub;
-pub mod dogpile;
 pub mod duckduckgo_definitions;
 pub mod duckduckgo_extra;
 pub mod duckduckgo_weather;
@@ -42,33 +35,23 @@ pub mod duckduckgo_web;
 pub mod elasticsearch;
 pub mod europepmc;
 pub mod exaapi;
-pub mod findborg;
 pub mod findthatmeme;
 pub mod fireball;
-pub mod five_hundred_px;
-pub mod flaticon;
 pub mod flickr;
 pub mod freesound;
 pub mod frinkiac;
 pub mod fyyd;
-pub mod genius;
 pub mod giphy;
 pub mod gitea;
 pub mod github;
 pub mod github_code;
 pub mod gitlab;
 pub mod gmx;
-pub mod google_cse;
-pub mod google_news;
-pub mod grokipedia;
 pub mod hackernews;
 pub mod hex;
 pub mod huggingface;
 pub mod iconify;
 pub mod il_post;
-pub mod imdb;
-pub mod invidious;
-pub mod iqiyi;
 pub mod iseek;
 pub mod jina;
 pub mod jisho;
@@ -79,7 +62,6 @@ pub mod lemmy;
 pub mod libretranslate;
 pub mod lingva;
 pub mod lucide;
-pub mod magnific;
 pub mod marginalia;
 #[cfg(feature = "db-engines")]
 pub mod mariadb_server;
@@ -111,19 +93,13 @@ pub mod openstreetmap;
 pub mod openverse;
 pub mod pdbe;
 pub mod peertube;
-pub mod pexels;
 pub mod photon;
-pub mod pinterest;
-pub mod piped;
 pub mod piratebay;
-pub mod pixabay;
-pub mod pixiv;
 pub mod podchaser;
 #[cfg(feature = "db-engines")]
 pub mod postgresql;
 pub mod public_domain_image_archive;
 pub mod pubmed;
-pub mod qwant;
 pub mod r360search_videos;
 pub mod radio_browser;
 pub mod recoll;
@@ -136,9 +112,7 @@ pub mod selfhst;
 pub mod semantic_scholar;
 pub mod senscritique;
 pub mod sepiasearch;
-pub mod sogou_videos;
 pub mod solr;
-pub mod soundcloud;
 pub mod spotify;
 pub mod springer;
 #[cfg(feature = "db-engines")]
@@ -146,7 +120,6 @@ pub mod sqlite;
 pub mod stackexchange;
 pub mod startpagina;
 pub mod steam;
-pub mod stocksnap;
 pub mod swisscows;
 pub mod swisscows_news;
 pub mod tagesschau;
@@ -155,7 +128,6 @@ pub mod tootfinder;
 pub mod torznab;
 pub mod translated;
 pub mod tusksearch;
-pub mod unsplash;
 #[cfg(feature = "db-engines")]
 pub mod valkey_server;
 pub mod vimeo;
@@ -165,13 +137,11 @@ pub mod wikicommons;
 pub mod wikidata;
 pub mod wikipedia;
 pub mod wolframalpha_api;
-pub mod wolframalpha_noapi;
 pub mod wttr;
 pub mod xprivo;
 pub mod yacy;
 pub mod yandex_api;
 pub mod yandex_music;
-pub mod yep;
 pub mod youtube_api;
 
 use crate::engine::EngineHandle;
@@ -181,14 +151,12 @@ use crate::settings::EngineConfig;
 pub fn build(config: &EngineConfig) -> Result<EngineHandle, String> {
     let handle: EngineHandle = match config.engine.as_str() {
         "arxiv" => arxiv::Arxiv::from_config(config)?,
-        "bing_news" => bing_news::BingNews::from_config(config)?,
         "crates" => crates::Crates::from_config(config)?,
         "crossref" => crossref::Crossref::from_config(config)?,
         "dailymotion" => dailymotion::Dailymotion::from_config(config)?,
         "deezer" => deezer::Deezer::from_config(config)?,
         "docker_hub" => docker_hub::DockerHub::from_config(config)?,
         "github" => github::GitHub::from_config(config)?,
-        "google_news" => google_news::GoogleNews::from_config(config)?,
         "hackernews" => hackernews::HackerNews::from_config(config)?,
         "mwmbl" => mwmbl::Mwmbl::from_config(config)?,
         "npm" => npm::Npm::from_config(config)?,
@@ -203,39 +171,24 @@ pub fn build(config: &EngineConfig) -> Result<EngineHandle, String> {
         "wikipedia" => wikipedia::Wikipedia::from_config(config)?,
         "json_engine" => json_engine::JsonEngine::from_config(config)?,
         "mediawiki" => mediawiki::MediaWiki::from_config(config)?,
-        "andisearch" => andisearch::Andisearch::from_config(config)?,
         "apple_app_store" => apple_app_store::AppleAppStore::from_config(config)?,
         "baidu" => baidu::Baidu::from_config(config)?,
-        "dogpile" => dogpile::Dogpile::from_config(config)?,
-        "findborg" => findborg::Findborg::from_config(config)?,
         "fireball" => fireball::Fireball::from_config(config)?,
-        "500px" => five_hundred_px::FiveHundredPx::from_config(config)?,
-        "invidious" => invidious::Invidious::from_config(config)?,
         "lemmy" => lemmy::Lemmy::from_config(config)?,
         "mastodon" => mastodon::Mastodon::from_config(config)?,
         "9gag" => nine_gag::NineGag::from_config(config)?,
         "peertube" => peertube::Peertube::from_config(config)?,
-        "pexels" => pexels::Pexels::from_config(config)?,
-        "piped" => piped::Piped::from_config(config)?,
-        "pixabay" => pixabay::Pixabay::from_config(config)?,
-        "qwant" => qwant::Qwant::from_config(config)?,
         "sepiasearch" => sepiasearch::Sepiasearch::from_config(config)?,
         "startpagina" => startpagina::Startpagina::from_config(config)?,
         "tootfinder" => tootfinder::Tootfinder::from_config(config)?,
         "tusksearch" => tusksearch::Tusksearch::from_config(config)?,
-        "unsplash" => unsplash::Unsplash::from_config(config)?,
-        "genius" => genius::Genius::from_config(config)?,
-        "imdb" => imdb::Imdb::from_config(config)?,
         "mixcloud" => mixcloud::Mixcloud::from_config(config)?,
-        "soundcloud" => soundcloud::Soundcloud::from_config(config)?,
         "wallhaven" => wallhaven::Wallhaven::from_config(config)?,
-        "artstation" => artstation::Artstation::from_config(config)?,
         "giphy" => giphy::Giphy::from_config(config)?,
         "discourse" => discourse::Discourse::from_config(config)?,
         "duckduckgo_extra" => duckduckgo_extra::DuckDuckGoExtra::from_config(config)?,
         "duckduckgo_web" => duckduckgo_web::DuckDuckGoWeb::from_config(config)?,
         "artic" => artic::Artic::from_config(config)?,
-        "bitchute" => bitchute::Bitchute::from_config(config)?,
         "bpb" => bpb::Bpb::from_config(config)?,
         "braveapi" => braveapi::BraveApi::from_config(config)?,
         "cachy_os" => cachy_os::CachyOs::from_config(config)?,
@@ -244,7 +197,6 @@ pub fn build(config: &EngineConfig) -> Result<EngineHandle, String> {
         "cloudflareai" => cloudflareai::CloudflareAi::from_config(config)?,
         "core" => core::Core::from_config(config)?,
         "360search_videos" => r360search_videos::Videoscarch360::from_config(config)?,
-        "iqiyi" => iqiyi::Iqiyi::from_config(config)?,
         "odysee" => odysee::Odysee::from_config(config)?,
         "vimeo" => vimeo::Vimeo::from_config(config)?,
         "youtube_api" => youtube_api::YouTubeApi::from_config(config)?,
@@ -256,27 +208,19 @@ pub fn build(config: &EngineConfig) -> Result<EngineHandle, String> {
         "hex" => hex::Hex::from_config(config)?,
         "neosearch" => neosearch::Neosearch::from_config(config)?,
         "openalex" => openalex::OpenAlex::from_config(config)?,
-        "sogou_videos" => sogou_videos::SogouVideos::from_config(config)?,
         "springer" => springer::Springer::from_config(config)?,
         "steam" => steam::Steam::from_config(config)?,
         "swisscows" => swisscows::Swisscows::from_config(config)?,
-        "yep" => yep::Yep::from_config(config)?,
-        "flaticon" => flaticon::Flaticon::from_config(config)?,
         "flickr" => flickr::Flickr::from_config(config)?,
         "iconify" => iconify::Iconify::from_config(config)?,
         "jisho" => jisho::Jisho::from_config(config)?,
-        "pinterest" => pinterest::Pinterest::from_config(config)?,
-        "pixiv" => pixiv::Pixiv::from_config(config)?,
         "pubmed" => pubmed::PubMed::from_config(config)?,
         "repology" => repology::Repology::from_config(config)?,
         "wolframalpha_api" => wolframalpha_api::WolframAlphaApi::from_config(config)?,
         "currency_convert" => currency_convert::CurrencyConvert::from_config(config)?,
         "open_meteo" => open_meteo::OpenMeteo::from_config(config)?,
         "piratebay" => piratebay::Piratebay::from_config(config)?,
-        "wolframalpha_noapi" => wolframalpha_noapi::WolframAlphaNoapi::from_config(config)?,
-        "bilibili" => bilibili::Bilibili::from_config(config)?,
         "bt4g" => bt4g::Bt4g::from_config(config)?,
-        "chefkoch" => chefkoch::Chefkoch::from_config(config)?,
         "huggingface" => huggingface::HuggingFace::from_config(config)?,
         "jina" => jina::Jina::from_config(config)?,
         "metacpan" => metacpan::Metacpan::from_config(config)?,
@@ -289,10 +233,8 @@ pub fn build(config: &EngineConfig) -> Result<EngineHandle, String> {
         "duckduckgo_definitions" => {
             duckduckgo_definitions::DuckDuckGoDefinitions::from_config(config)?
         }
-        "grokipedia" => grokipedia::Grokipedia::from_config(config)?,
         "il_post" => il_post::IlPost::from_config(config)?,
         "lingva" => lingva::Lingva::from_config(config)?,
-        "magnific" => magnific::Magnific::from_config(config)?,
         "mediathekviewweb" => mediathekviewweb::Mediathekviewweb::from_config(config)?,
         "microsoft_learn" => microsoft_learn::MicrosoftLearn::from_config(config)?,
         "moviepilot" => moviepilot::Moviepilot::from_config(config)?,
@@ -324,14 +266,12 @@ pub fn build(config: &EngineConfig) -> Result<EngineHandle, String> {
         "selfhst" => selfhst::Selfhst::from_config(config)?,
         "senscritique" => senscritique::Senscritique::from_config(config)?,
         "spotify" => spotify::Spotify::from_config(config)?,
-        "stocksnap" => stocksnap::Stocksnap::from_config(config)?,
         "swisscows_news" => swisscows_news::SwisscowsNews::from_config(config)?,
         "tagesschau" => tagesschau::Tagesschau::from_config(config)?,
         "voidlinux" => voidlinux::VoidLinux::from_config(config)?,
         "xprivo" => xprivo::Xprivo::from_config(config)?,
         "exaapi" => exaapi::ExaApi::from_config(config)?,
         "freesound" => freesound::Freesound::from_config(config)?,
-        "google_cse" => google_cse::GoogleCse::from_config(config)?,
         "kagi" => kagi::Kagi::from_config(config)?,
         "translated" => translated::Translated::from_config(config)?,
         "wttr" => wttr::Wttr::from_config(config)?,
@@ -405,6 +345,67 @@ mod tests {
                 "HTML engine {engine} is still available"
             );
         }
+    }
+
+    #[test]
+    fn tos_prohibited_engines_cannot_be_restored_by_custom_settings() {
+        let mut settings = Settings::defaults();
+        for engine in [
+            "unsplash",
+            "pinterest",
+            "genius",
+            "imdb",
+            "bitchute",
+            "500px",
+            "pexels",
+            "qwant",
+            "artstation",
+            "pixiv",
+            "iqiyi",
+            "sogou_videos",
+            "flaticon",
+            "yep",
+            "dogpile",
+            "findborg",
+            "andisearch",
+            "grokipedia",
+            "google_news",
+            "bing_news",
+            "piped",
+            "invidious",
+            "google_cse",
+            "soundcloud",
+            "wolframalpha_noapi",
+            "magnific",
+            "chefkoch",
+            "bilibili",
+            "pixabay",
+            "stocksnap",
+        ] {
+            assert!(
+                settings
+                    .engines
+                    .iter()
+                    .all(|config| config.engine != engine),
+                "removed engine {engine} is still in default settings"
+            );
+            let config = EngineConfig::new(engine, engine, engine, &["general"]);
+            assert!(
+                build(&config).is_err(),
+                "removed engine {engine} is still available"
+            );
+            settings.engines.push(config);
+        }
+        // Legacy settings must not prevent the remaining engines from starting.
+        let registry = crate::engine::EngineRegistry::from_settings(&settings).unwrap();
+        assert_eq!(registry.len(), settings.enabled_engines().count() - 30);
+        assert_eq!(registry.failed().len(), 30);
+        for (name, error) in registry.failed() {
+            assert!(registry.get(name).is_none());
+            assert!(registry.by_shortcut(name).is_none());
+            assert!(error.contains("unknown engine type"));
+        }
+        assert!(registry.get("wikipedia").is_some());
     }
 
     #[test]

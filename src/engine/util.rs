@@ -1,6 +1,6 @@
 //! Shared helpers for API/feed snippets, text cleanup and URL unwrapping.
 
-use super::{EngineError, EngineItem};
+use super::EngineItem;
 use crate::results::{Priority, SearchResult, Template};
 
 /// Collapse whitespace and trim.
@@ -279,112 +279,6 @@ pub fn locale_region(locale: &str) -> String {
     match locale.split(['-', '_']).nth(1) {
         Some(region) => region.to_lowercase(),
         None => "all".to_string(),
-    }
-}
-
-/// One entry of an RSS 2.0 feed (Google News, Bing News, ...).
-#[derive(Debug, Clone, Default)]
-pub struct RssItem {
-    pub title: String,
-    pub link: String,
-    pub description: String,
-    pub pub_date: Option<String>,
-    pub source: Option<String>,
-    pub categories: Vec<String>,
-}
-
-/// Parse the `<item>` elements of an RSS 2.0 feed.
-///
-/// Upstream parses feeds with lxml/feedparser; only a structurally broken
-/// document is an error here, a feed without items yields an empty list.
-pub fn parse_rss(xml: &str) -> Result<Vec<RssItem>, EngineError> {
-    let mut reader = quick_xml::Reader::from_str(xml);
-    reader.config_mut().trim_text(true);
-    let mut buffer = Vec::new();
-    let mut items = Vec::new();
-    let mut item: Option<RssItem> = None;
-    let mut field: Option<&'static str> = None;
-    let mut captured = String::new();
-    loop {
-        let event = reader
-            .read_event_into(&mut buffer)
-            .map_err(|error| EngineError::Parse(format!("invalid RSS response: {error}")))?;
-        match event {
-            quick_xml::events::Event::Start(start) => {
-                let name = start.local_name().as_ref().to_ascii_lowercase();
-                field = match name.as_slice() {
-                    b"item" => {
-                        item = Some(RssItem::default());
-                        None
-                    }
-                    b"title" if item.is_some() => Some("title"),
-                    b"link" if item.is_some() => Some("link"),
-                    b"description" | b"summary" if item.is_some() => Some("description"),
-                    b"pubdate" | b"published" | b"updated" if item.is_some() => Some("pubdate"),
-                    b"source" if item.is_some() => Some("source"),
-                    b"category" if item.is_some() => Some("category"),
-                    _ => None,
-                };
-                if field.is_some() {
-                    captured.clear();
-                }
-            }
-            quick_xml::events::Event::CData(text) => {
-                // CDATA sections carry raw HTML ("<br>") in many feeds.
-                if field.is_some() {
-                    let raw = String::from_utf8_lossy(&text.into_inner()).to_string();
-                    captured.push_str(&decode_entities(&raw));
-                }
-            }
-            quick_xml::events::Event::Text(text) => {
-                if field.is_some() {
-                    // Feeds use HTML entities (&nbsp;, &#8217;) that the XML
-                    // unescaper refuses, so decode the raw text ourselves.
-                    let raw = String::from_utf8_lossy(&text.into_inner()).to_string();
-                    captured.push_str(&decode_entities(&raw));
-                }
-            }
-            quick_xml::events::Event::End(end) => {
-                if end.local_name().as_ref().eq_ignore_ascii_case(b"item") {
-                    if let Some(entry) = item.take() {
-                        items.push(entry);
-                    }
-                } else if let (Some(entry), Some(field)) = (item.as_mut(), field) {
-                    let value = clean(&std::mem::take(&mut captured));
-                    match field {
-                        "title" => entry.title = value,
-                        "link" => {
-                            if entry.link.is_empty() {
-                                entry.link = value;
-                            }
-                        }
-                        "description" => entry.description = value,
-                        "pubdate" => entry.pub_date = Some(value),
-                        "source" => entry.source = Some(value),
-                        "category" if !value.is_empty() => entry.categories.push(value),
-                        _ => {}
-                    }
-                }
-                field = None;
-                captured.clear();
-            }
-            quick_xml::events::Event::Eof => break,
-            _ => {}
-        }
-        buffer.clear();
-    }
-    Ok(items)
-}
-
-/// Unwrap the `url=` parameter of a redirect link (Bing News apiclick).
-pub fn unwrap_url_parameter(link: &str) -> String {
-    let Some(index) = link.find("url=") else {
-        return link.to_string();
-    };
-    let encoded = link[index + 4..].split('&').next().unwrap_or_default();
-    match percent_encoding::percent_decode_str(encoded).decode_utf8() {
-        Ok(decoded) => decoded.to_string(),
-        Err(_) => link.to_string(),
     }
 }
 
